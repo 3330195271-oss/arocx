@@ -1,7 +1,7 @@
 const fallbackConfig = {
   latestVersion: '1.0.5',
-  downloadUrlWindows: '/downloads/app/arocx-1.0.5-x64.exe',
-  downloadUrlMacArm64: '/downloads/app/arocx-1.0.5-arm64-mac.dmg',
+  downloadUrlWindows: 'https://github.com/3330195271-oss/arocx/releases/download/v1.0.5/arocx-1.0.5-x64.exe',
+  downloadUrlMacArm64: 'https://github.com/3330195271-oss/arocx/releases/download/v1.0.5/arocx-1.0.5-arm64-mac.dmg',
   downloadUrlMacX64: '',
   publishedAt: '2026-06-24T16:00:00.000Z',
   releaseNotes: `【1.0.5 本次更新】
