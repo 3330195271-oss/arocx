@@ -103,21 +103,23 @@
 
       <section class="signal-strip" aria-label="产品能力">
         <div class="signal-strip__inner">
-          <span>AI 截图录单</span>
-          <span>订单管理</span>
-          <span>设备库存</span>
-          <span>租期到期提醒</span>
-          <span>企业微信通知</span>
-          <span>飞书共享表格同步</span>
+          <a href="#ai-capture" aria-label="跳转到 AI 截图录单介绍">AI 截图录单</a>
+          <a href="#order-management" aria-label="跳转到订单管理介绍">订单管理</a>
+          <a href="#inventory-management" aria-label="跳转到设备库存介绍">设备库存</a>
+          <a href="#rental-reminders" aria-label="跳转到租期到期提醒介绍">租期到期提醒</a>
+          <a href="#enterprise-wechat" aria-label="跳转到企业微信通知介绍">企业微信通知</a>
+          <a href="#feishu-sync" aria-label="跳转到飞书共享表格同步介绍">飞书共享表格同步</a>
         </div>
       </section>
 
-      <section class="feature-band" id="features">
+      <section class="feature-band" id="order-management">
         <div class="band-shell band-shell--visual-first">
           <div class="band-visual">
             <img src="./assets/feature-orders.png" alt="ARO 订单管理与租期追踪界面" />
           </div>
           <div class="band-copy">
+            <div class="section-anchor" id="features" aria-hidden="true"></div>
+            <div class="section-anchor" id="inventory-management" aria-hidden="true"></div>
             <p class="eyebrow eyebrow--dark">订单与租期</p>
             <h2>客户何时起租、何时到期、何时发货，一眼就清楚。</h2>
             <p>
@@ -132,9 +134,10 @@
         </div>
       </section>
 
-      <section class="feature-band feature-band--alt">
+      <section class="feature-band feature-band--alt" id="ai-capture">
         <div class="band-shell">
           <div class="band-copy">
+            <div class="section-anchor" id="enterprise-wechat" aria-hidden="true"></div>
             <p class="eyebrow eyebrow--dark">AI 与协作</p>
             <h2>把录单、提醒和协作放在一起，减少反复确认。</h2>
             <p>
@@ -142,7 +145,7 @@
             </p>
             <ul class="band-list">
               <li>截图里的订单内容可快速生成记录</li>
-              <li>发货、到期等提醒可及时发送</li>
+              <li>发货、到期等提醒可通过企业微信及时发送</li>
               <li>飞书共享表格可用于协作查看与留档</li>
             </ul>
           </div>
@@ -177,14 +180,14 @@
               <span>查看内容</span>
             </a>
 
-            <a class="guide-card" href="./rental-shipping-reminders/">
+            <a class="guide-card" id="rental-reminders" href="./rental-shipping-reminders/">
               <div class="guide-card__eyebrow">发货与到期</div>
               <h3>租期提醒与发货管理</h3>
               <p>把今天待发货、即将到期和库存状态放到同一个工作台。</p>
               <span>查看内容</span>
             </a>
 
-            <a class="guide-card" href="./feishu-order-sync/">
+            <a class="guide-card" id="feishu-sync" href="./feishu-order-sync/">
               <div class="guide-card__eyebrow">飞书同步</div>
               <h3>飞书共享表格同步订单</h3>
               <p>让团队继续在飞书里查看订单和设备信息，同时保留软件内流程。</p>

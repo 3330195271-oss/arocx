@@ -270,7 +270,42 @@ a {
   font-size: 14px;
 }
 
-.signal-strip__inner span {
+.signal-strip__inner a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  color: rgba(255, 255, 255, 0.78);
+  transition: color 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+
+.signal-strip__inner a:hover,
+.signal-strip__inner a:focus-visible {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.signal-strip__inner a,
+.section-anchor,
+.guide-card[id],
+.feature-band[id],
+.guides-band[id],
+.download-band[id],
+.updates-band[id] {
+  scroll-margin-top: 110px;
+}
+
+.section-anchor {
+  display: block;
+  width: 1px;
+  height: 1px;
+}
+
+.signal-strip__inner span,
+.signal-strip__inner a {
   white-space: nowrap;
 }
 
