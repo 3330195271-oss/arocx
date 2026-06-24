@@ -105,6 +105,22 @@ function updateReleaseNotes(config) {
     .join('')
 }
 
+function setupBackToTop() {
+  const button = document.getElementById('back-to-top')
+  if (!button) return
+
+  const toggleVisibility = () => {
+    button.classList.toggle('is-visible', window.scrollY > 320)
+  }
+
+  button.addEventListener('click', () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  })
+
+  window.addEventListener('scroll', toggleVisibility, { passive: true })
+  toggleVisibility()
+}
+
 async function loadVersionConfig() {
   for (const endpoint of endpoints) {
     try {
@@ -122,3 +138,5 @@ loadVersionConfig().then(config => {
   updateDownloadCards(config)
   updateReleaseNotes(config)
 })
+
+setupBackToTop()
