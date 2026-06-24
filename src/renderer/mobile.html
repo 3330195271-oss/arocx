@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>arocx · 移动端</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f7; color: #1d1d1f; -webkit-font-smoothing: antialiased; padding-bottom: 80px; }
+    .header { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,0.85); backdrop-filter: blur(20px); padding: 12px 16px; border-bottom: 1px solid rgba(0,0,0,0.08); display: flex; align-items: center; justify-content: space-between; }
+    .header h1 { font-size: 17px; font-weight: 600; }
+    .tabs { display: flex; gap: 4px; padding: 8px 12px; background: #fff; border-bottom: 1px solid rgba(0,0,0,0.06); overflow-x: auto; }
+    .tab { padding: 6px 14px; border-radius: 16px; font-size: 13px; border: none; background: #f0f0f2; color: #6e6e73; white-space: nowrap; cursor: pointer; }
+    .tab.active { background: #0071e3; color: #fff; }
+    .search-bar { padding: 8px 12px; }
+    .search-bar input { width: 100%; padding: 8px 12px; border-radius: 10px; border: 1px solid rgba(0,0,0,0.1); font-size: 14px; background: #f0f0f2; outline: none; }
+    .search-bar input:focus { border-color: #0071e3; background: #fff; }
+    .card { margin: 8px 12px; padding: 14px; background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+    .card .name { font-size: 15px; font-weight: 600; }
+    .card .meta { font-size: 12px; color: #6e6e73; margin-top: 4px; }
+    .card .detail { font-size: 11px; color: #aeaeb2; margin-top: 2px; }
+    .card .row { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+    .badge { font-size: 11px; padding: 3px 8px; border-radius: 10px; font-weight: 500; }
+    .badge-pending { background: #fff3e0; color: #e67e22; }
+    .badge-dispatched { background: #e8f5e9; color: #2e7d32; }
+    .badge-returned { background: #f0f0f2; color: #8e8e93; }
+    .btn { padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; border: none; cursor: pointer; }
+    .btn-primary { background: #0071e3; color: #fff; }
+    .btn-secondary { background: #f0f0f2; color: #1d1d1f; }
+    .stats { display: flex; gap: 8px; padding: 8px 12px; overflow-x: auto; }
+    .stat { flex: 1; min-width: 80px; text-align: center; padding: 10px; background: #fff; border-radius: 10px; }
+    .stat .val { font-size: 20px; font-weight: 700; }
+    .stat .lbl { font-size: 11px; color: #8e8e93; margin-top: 2px; }
+    .upload-zone { margin: 12px; padding: 40px 16px; border: 2px dashed rgba(0,0,0,0.12); border-radius: 16px; text-align: center; background: #fff; }
+    .upload-zone .icon { font-size: 40px; margin-bottom: 8px; }
+    .upload-zone .text { font-size: 14px; color: #6e6e73; }
+    .upload-zone .hint { font-size: 11px; color: #aeaeb2; margin-top: 4px; }
+    .form-group { margin: 8px 0; }
+    .form-group label { font-size: 12px; font-weight: 500; color: #6e6e73; display: block; margin-bottom: 2px; }
+    .form-group input { width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.1); font-size: 14px; outline: none; }
+    .form-group input:focus { border-color: #0071e3; }
+    .toast { position: fixed; top: 60px; left: 50%; transform: translateX(-50%); background: #323232; color: #fff; padding: 10px 20px; border-radius: 20px; font-size: 13px; z-index: 100; animation: fadeInOut 2s ease; }
+    @keyframes fadeInOut { 0%,100% { opacity:0; } 10%,80% { opacity:1; } }
+    .ocr-result { margin: 12px; }
+    .loading { text-align: center; padding: 40px; color: #8e8e93; }
+    .empty { text-align: center; padding: 40px; color: #aeaeb2; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>📦 arocx</h1>
+    <span style="font-size:12px;color:#8e8e93" id="status">加载中</span>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="orders">📋 订单</button>
+    <button class="tab" data-tab="shipping">📮 已发货</button>
+    <button class="tab" data-tab="ocr">📸 截图录单</button>
+    <button class="tab" data-tab="stats">📊 概览</button>
+  </div>
+
+  <!-- Orders Tab -->
+  <div id="tab-orders">
+    <div class="search-bar"><input type="text" id="orderSearch" placeholder="🔍 搜索姓名/手机号/快递单号" oninput="renderOrders()"></div>
+    <div id="orderList"></div>
+  </div>
+
+  <!-- Shipping Tab -->
+  <div id="tab-shipping" style="display:none">
+    <div class="search-bar"><input type="text" id="shipSearch" placeholder="🔍 搜索已发货订单" oninput="renderShipping()"></div>
+    <div id="shipList"></div>
+  </div>
+
+  <!-- OCR Tab -->
+  <div id="tab-ocr" style="display:none">
+    <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+      <div class="icon">📷</div>
+      <div class="text">点击上传订单截图</div>
+      <div class="hint">支持淘宝/闲鱼/微信等平台截图</div>
+    </div>
+    <input type="file" id="fileInput" accept="image/*" capture="environment" style="display:none" onchange="handleUpload(this)">
+    <div id="ocrResult"></div>
+  </div>
+
+  <!-- Stats Tab -->
+  <div id="tab-stats" style="display:none">
+    <div id="statsContent"></div>
+  </div>
+
+  <!-- Dispatch Modal -->
+  <div id="dispatchModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.4); z-index:50; padding:20px; display:none; align-items:flex-end;">
+    <div style="background:#fff; border-radius:16px 16px 0 0; padding:20px; width:100%; max-height:80vh; overflow-y:auto;" onclick="event.stopPropagation()">
+      <div style="font-size:17px;font-weight:600;margin-bottom:16px;">📦 发货确认</div>
+      <div id="dispatchInfo" style="font-size:13px;color:#6e6e73;margin-bottom:12px;"></div>
+      <div class="form-group"><label>设备序列号</label><input type="text" id="serialInput" placeholder="输入序列号"></div>
+      <div class="form-group"><label>快递单号</label><input type="text" id="trackingInput" placeholder="输入快递单号"></div>
+      <div id="availDevices" style="margin:8px 0;max-height:120px;overflow-y:auto;"></div>
+      <div style="display:flex;gap:8px;margin-top:16px;">
+        <button class="btn btn-secondary" style="flex:1" onclick="closeDispatch()">取消</button>
+        <button class="btn btn-primary" style="flex:1" onclick="confirmDispatch()">确认发货</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" style="display:none"></div>
+
+  <script>
+    const API = '/api';
+    let allOrders = [];
+    let allDevices = [];
+    let dispatchOrderId = null;
+
+    async function load() {
+      try {
+        const [oRes, dRes] = await Promise.all([
+          fetch(API + '/orders'), fetch(API + '/devices')
+        ]);
+        allOrders = await oRes.json();
+        allDevices = await dRes.json();
+        document.getElementById('status').textContent = `共 ${allOrders.length} 单`;
+        renderOrders();
+        renderShipping();
+        renderStats();
+      } catch(e) {
+        document.getElementById('status').textContent = '连接失败';
+      }
+    }
+
+    // Tabs
+    document.querySelectorAll('.tab').forEach(t => {
+      t.onclick = () => {
+        document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+        t.classList.add('active');
+        ['orders','shipping','ocr','stats'].forEach(id => {
+          document.getElementById('tab-' + id).style.display = id === t.dataset.tab ? 'block' : 'none';
+        });
+        if (t.dataset.tab === 'orders') renderOrders();
+        if (t.dataset.tab === 'shipping') renderShipping();
+        if (t.dataset.tab === 'stats') renderStats();
+      };
+    });
+
+    function renderOrders() {
+      const q = (document.getElementById('orderSearch').value || '').toLowerCase();
+      const list = allOrders.filter(o => o.status !== 'returned');
+      const filtered = q ? list.filter(o =>
+        (o.customerName||'').toLowerCase().includes(q) ||
+        (o.customerPhone||'').includes(q) ||
+        (o.trackingNumber||'').includes(q)
+      ) : list;
+      const el = document.getElementById('orderList');
+      if (!filtered.length) { el.innerHTML = '<div class="empty">暂无订单</div>'; return; }
+      el.innerHTML = filtered.map(o => `
+        <div class="card">
+          <div class="name">${o.customerName} <span class="badge badge-${o.status}">${{pending:'待发',dispatched:'已发',returned:'已还'}[o.status]||o.status}</span></div>
+          <div class="meta">${o.customerPhone} · ${o.deviceId} ${o.platform ? '· '+o.platform : ''}</div>
+          <div class="detail">${o.customerAddress||''}</div>
+          ${o.serialNumber ? `<div class="detail">序列号: ${o.serialNumber} · 快递: ${o.trackingNumber||'-'}</div>` : ''}
+          ${o.shipmentDate ? `<div class="detail">发货日 ${o.shipmentDate}${o.rentalStart ? ' · 起租 '+o.rentalStart : ''}${o.rentalEnd ? ' · 到期 '+o.rentalEnd : ''}</div>` : ''}
+          ${o.status === 'pending' ? `<div class="row"><span></span><button class="btn btn-primary" onclick="openDispatch('${o.id}','${o.customerName}','${o.deviceId}')">发货</button></div>` : ''}
+          ${o.status === 'dispatched' ? `<div class="row"><span></span><button class="btn btn-secondary" onclick="quickReturn('${o.id}')">归还</button></div>` : ''}
+        </div>
+      `).join('');
+    }
+
+    function renderShipping() {
+      const q = (document.getElementById('shipSearch').value || '').toLowerCase();
+      const list = allOrders.filter(o => o.status === 'dispatched' || o.status === 'returned');
+      const filtered = q ? list.filter(o =>
+        (o.customerName||'').toLowerCase().includes(q) ||
+        (o.customerPhone||'').includes(q) ||
+        (o.trackingNumber||'').includes(q)
+      ) : list;
+      const el = document.getElementById('shipList');
+      if (!filtered.length) { el.innerHTML = '<div class="empty">暂无发货记录</div>'; return; }
+      el.innerHTML = filtered.map(o => `
+        <div class="card">
+          <div class="name">${o.customerName} <span class="badge badge-${o.status}">${o.status==='dispatched'?'已发':'已还'}</span></div>
+          <div class="meta">${o.customerPhone} · ${o.deviceId}</div>
+          <div class="detail">序列号: ${o.serialNumber} · 快递: ${o.trackingNumber}</div>
+          ${o.returnDate ? `<div class="detail">归还日: ${o.returnDate}</div>` : ''}
+          ${o.status === 'dispatched' ? `<div class="row"><span></span><button class="btn btn-secondary" onclick="quickReturn('${o.id}')">归还</button></div>` : ''}
+        </div>
+      `).join('');
+    }
+
+    function renderStats() {
+      const pending = allOrders.filter(o => o.status === 'pending').length;
+      const dispatched = allOrders.filter(o => o.status === 'dispatched').length;
+      const returned = allOrders.filter(o => o.status === 'returned').length;
+      const idle = allDevices.filter(d => d.status === 'idle').length;
+      document.getElementById('statsContent').innerHTML = `
+        <div class="stats">
+          <div class="stat"><div class="val">${allOrders.length}</div><div class="lbl">总订单</div></div>
+          <div class="stat"><div class="val" style="color:#e67e22">${pending}</div><div class="lbl">待发货</div></div>
+          <div class="stat"><div class="val" style="color:#2e7d32">${dispatched}</div><div class="lbl">已发货</div></div>
+          <div class="stat"><div class="val" style="color:#8e8e93">${returned}</div><div class="lbl">已归还</div></div>
+        </div>
+        <div class="stats">
+          <div class="stat"><div class="val">${allDevices.length}</div><div class="lbl">设备总数</div></div>
+          <div class="stat"><div class="val" style="color:#2e7d32">${idle}</div><div class="lbl">空闲中</div></div>
+          <div class="stat"><div class="val" style="color:#1565c0">${allDevices.length-idle}</div><div class="lbl">租用中</div></div>
+        </div>
+      `;
+    }
+
+    function openDispatch(id, name, model) {
+      dispatchOrderId = id;
+      document.getElementById('dispatchInfo').innerHTML = `客户: <strong>${name}</strong> · ${model}`;
+      document.getElementById('serialInput').value = '';
+      document.getElementById('trackingInput').value = '';
+      const idleDevs = allDevices.filter(d => d.status === 'idle');
+      document.getElementById('availDevices').innerHTML = idleDevs.length
+        ? idleDevs.map(d => `<div style="padding:6px 8px;margin:4px 0;background:#f0f0f2;border-radius:6px;font-size:12px;cursor:pointer" onclick="document.getElementById('serialInput').value='${d.serialNumber}'">📱 ${d.serialNumber} · ${d.deviceId}</div>`).join('')
+        : '<div style="font-size:12px;color:#c62828">⚠️ 没有空闲设备</div>';
+      document.getElementById('dispatchModal').style.display = 'flex';
+    }
+
+    function closeDispatch() {
+      document.getElementById('dispatchModal').style.display = 'none';
+      dispatchOrderId = null;
+    }
+
+    async function confirmDispatch() {
+      const serial = document.getElementById('serialInput').value.trim();
+      const tracking = document.getElementById('trackingInput').value.trim();
+      if (!serial || !tracking) { toast('请填写序列号和快递单号'); return; }
+      try {
+        const resp = await fetch(API + '/orders/dispatch', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ orderId: dispatchOrderId, serialNumber: serial, trackingNumber: tracking })
+        });
+        if (resp.ok) { toast('发货成功'); closeDispatch(); load(); }
+        else { const e = await resp.json(); toast(e.error); }
+      } catch(e) { toast('发货失败'); }
+    }
+
+    async function quickReturn(orderId) {
+      if (!confirm('确认归还？')) return;
+      try {
+        await fetch(API + '/orders/return', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ orderId })
+        });
+        toast('已归还'); load();
+      } catch(e) { toast('归还失败'); }
+    }
+
+    async function handleUpload(input) {
+      const file = input.files[0];
+      if (!file) return;
+      document.getElementById('ocrResult').innerHTML = '<div class="loading">⏳ AI 识别中...</div>';
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const resp = await fetch(API + '/orders', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ imageBase64: reader.result })
+          });
+          const data = await resp.json();
+          if (data.error) throw new Error(data.error);
+          document.getElementById('ocrResult').innerHTML = `
+            <div class="ocr-result">
+              <div class="card">
+                <div class="name">✅ 识别完成</div>
+                <div class="meta">请到桌面端确认并保存订单</div>
+                <div class="detail">客户: ${data.name||'?'} · ${data.deviceId||'?'}</div>
+              </div>
+            </div>`;
+          toast('识别完成，请在桌面端确认');
+        } catch(e) {
+          document.getElementById('ocrResult').innerHTML = `<div class="empty">识别失败: ${e.message}</div>`;
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function toast(msg) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.style.display = 'block';
+      setTimeout(() => el.style.display = 'none', 2000);
+    }
+
+    load();
+    setInterval(load, 30000);
+  </script>
+</body>
+</html>

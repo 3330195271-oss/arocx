@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="160" y1="96" x2="864" y2="928" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f8f8f5"/>
+      <stop offset="1" stop-color="#e4e9e3"/>
+    </linearGradient>
+    <linearGradient id="gloss" x1="220" y1="120" x2="736" y2="584" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.92"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="orbit" x1="298" y1="678" x2="776" y2="364" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7fb0ff"/>
+      <stop offset="1" stop-color="#0a84ff"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="84" y="96" width="856" height="856" rx="216" fill="#000000" opacity="0.08"/>
+  <rect x="64" y="64" width="896" height="896" rx="224" fill="url(#bg)"/>
+  <rect x="64" y="64" width="896" height="896" rx="224" fill="none" stroke="#d9ddd8" stroke-width="4"/>
+  <path d="M154 132C238 98 384 94 516 126C654 160 768 142 854 102C790 192 664 260 466 244C318 230 222 222 154 132Z" fill="url(#gloss)"/>
+
+  <path
+    d="M352 416L512 304L672 416"
+    fill="none"
+    stroke="#181a1f"
+    stroke-width="42"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <rect
+    x="392"
+    y="430"
+    width="240"
+    height="304"
+    rx="62"
+    fill="none"
+    stroke="#181a1f"
+    stroke-width="42"
+  />
+  <path
+    d="M448 522H576"
+    fill="none"
+    stroke="#181a1f"
+    stroke-width="38"
+    stroke-linecap="round"
+  />
+  <path
+    d="M448 604H548"
+    fill="none"
+    stroke="#181a1f"
+    stroke-width="38"
+    stroke-linecap="round"
+  />
+
+  <path
+    d="M308 618C346 744 470 814 618 790"
+    fill="none"
+    stroke="url(#orbit)"
+    stroke-width="34"
+    stroke-linecap="round"
+  />
+  <path
+    d="M678 780C762 730 816 648 820 542C824 458 792 374 722 318"
+    fill="none"
+    stroke="url(#orbit)"
+    stroke-width="34"
+    stroke-linecap="round"
+  />
+  <circle cx="720" cy="314" r="30" fill="#0a84ff"/>
+</svg>

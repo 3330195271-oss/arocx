@@ -1,0 +1,17 @@
+node_modules/
+server/node_modules/
+out/
+server/dist/
+release/
+dist/
+*.log
+.DS_Store
+.env
+server/.env
+.claude/
+*.tsbuildinfo
+warehouse-server.zip
+data/
+server/uploads/
+server/uploads/app/
+server/src/**/*.js

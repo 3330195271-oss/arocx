@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_DB: ${DB_NAME:-warehouse}
+      POSTGRES_USER: ${DB_USER:-warehouse}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-warehouse}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-warehouse} -d ${DB_NAME:-warehouse}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build: .
+    restart: always
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./uploads:/app/uploads
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-warehouse}
+      DB_USER: ${DB_USER:-warehouse}
+      DB_PASSWORD: ${DB_PASSWORD:-warehouse}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set in .env}
+      ADMIN_SECRET: ${ADMIN_SECRET:?ADMIN_SECRET must be set in .env}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-465}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-arocx}
+      PORT: ${PORT:-3001}
+      APP_DOWNLOADS_DIR: /app/uploads/app
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
