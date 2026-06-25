@@ -562,7 +562,7 @@ export default function App(): JSX.Element {
             )}
             {currentPage === 'home' && <HomePage onNavigate={navigateTo} userEmail={userEmail} userTier={userTier} onRefreshUser={handleRefreshUser} onLogout={handleLogout} />}
             {currentPage === 'screenshot' && <ScreenshotOrder />}
-            {currentPage === 'dashboard' && <Dashboard />}
+            {currentPage === 'dashboard' && <Dashboard key={refreshKey} />}
             {currentPage === 'inventory' && <DeviceInventory key={refreshKey} initialFilter={isInventoryIntent(pageIntent) ? pageIntent.filter : undefined} />}
             {currentPage === 'orders' && <OrderPanel key={refreshKey} initialFilter={isOrderIntent(pageIntent) ? pageIntent.filter : undefined} initialDate={isOrderIntent(pageIntent) ? pageIntent.date : undefined} />}
             {currentPage === 'shipping' && <ShippingInfo key={refreshKey} />}

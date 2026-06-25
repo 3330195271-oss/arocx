@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { bootstrapMyFeishuConfig, getMyFeishuConfig, getUser, saveMyFeishuConfig } from '../services/api-client'
 import type { FeishuConfigPayload } from '../services/api-client'
+import { FEISHU_SETUP_GUIDE_URL } from '../utils/external-links'
 
 const EMPTY_CONFIG: FeishuConfigPayload = {
   enabled: false,
@@ -73,6 +74,14 @@ export function FeishuSyncPage(): JSX.Element {
     }
   }
 
+  async function handleOpenGuide() {
+    try {
+      await window.electronAPI.openExternalUrl(FEISHU_SETUP_GUIDE_URL)
+    } catch {
+      window.open(FEISHU_SETUP_GUIDE_URL, '_blank', 'noopener,noreferrer')
+    }
+  }
+
   if (!isPlus) {
     return (
       <div style={{ padding: '0 28px 20px', overflowY: 'auto', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -111,6 +120,15 @@ export function FeishuSyncPage(): JSX.Element {
         <div style={{ marginTop: '12px', fontSize: '12px', opacity: 0.84 }}>
           当前账号：{user?.email || '-'} {isReady ? '· 已完成连接' : '· 还没有完成绑定'}
         </div>
+        <div style={{ marginTop: '14px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <button
+            className="settings-panel__btn settings-panel__btn--secondary"
+            onClick={handleOpenGuide}
+            style={{ fontSize: '12px', height: '34px', background: 'rgba(255,255,255,0.12)', borderColor: 'rgba(255,255,255,0.22)', color: '#fff' }}
+          >
+            查看飞书接入教程
+          </button>
+        </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '16px' }}>
@@ -123,6 +141,13 @@ export function FeishuSyncPage(): JSX.Element {
       </div>
 
       <div style={{ background: 'var(--bg-secondary)', borderRadius: '12px', padding: '20px', border: '1px solid var(--border)', marginBottom: '16px' }}>
+        <h4 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '8px' }}>接入前准备</h4>
+        <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', lineHeight: 1.8, marginBottom: '14px' }}>
+          <div>1. 先在飞书开放平台创建企业自建应用。</div>
+          <div>2. 开通多维表格相关权限，至少包括创建表格、读取字段、创建字段、更新字段、创建记录、更新记录。</div>
+          <div>3. 权限开通后记得发布版本，再回到这里填写 App ID 和 App Secret。</div>
+        </div>
+
         <h4 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '8px' }}>连接飞书应用</h4>
         <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginBottom: '14px', lineHeight: 1.7 }}>
           先填写飞书开放平台里自建应用的 App ID 和 App Secret。保存后可以直接自动创建订单表，也可以手动填写已有表格的 App Token 和 Table ID。

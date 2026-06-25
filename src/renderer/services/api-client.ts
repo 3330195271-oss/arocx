@@ -460,3 +460,32 @@ export async function getEnterpriseOrders(): Promise<{ orders: any[] }> {
 export async function getEnterpriseDevices(): Promise<{ devices: any[] }> {
   return request('/api/enterprise/devices')
 }
+
+export async function deleteEnterpriseOrder(orderId: string): Promise<{ success: boolean }> {
+  return request('/api/enterprise/orders/' + encodeURIComponent(orderId), { method: 'DELETE' })
+}
+
+export async function dispatchEnterpriseOrder(orderId: string, serialNumber: string, trackingNumber: string): Promise<{ success: boolean; message: string; order: any }> {
+  return request('/api/enterprise/orders/' + encodeURIComponent(orderId) + '/dispatch', {
+    method: 'POST',
+    body: JSON.stringify({ serialNumber, trackingNumber })
+  })
+}
+
+export async function returnEnterpriseOrder(orderId: string): Promise<{ success: boolean; order: any }> {
+  return request('/api/enterprise/orders/' + encodeURIComponent(orderId) + '/return', {
+    method: 'POST',
+    body: JSON.stringify({})
+  })
+}
+
+export async function forwardEnterpriseOrder(orderId: string, targetOrderId: string, trackingNumber: string): Promise<{ success: boolean; message: string }> {
+  return request('/api/enterprise/orders/' + encodeURIComponent(orderId) + '/forward', {
+    method: 'POST',
+    body: JSON.stringify({ targetOrderId, trackingNumber })
+  })
+}
+
+export async function deleteEnterpriseDevice(deviceId: string): Promise<{ success: boolean }> {
+  return request('/api/enterprise/devices/' + encodeURIComponent(deviceId), { method: 'DELETE' })
+}

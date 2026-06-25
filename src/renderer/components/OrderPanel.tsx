@@ -1,8 +1,23 @@
 import { useEffect, useState, useMemo } from 'react'
-import type { Order, Device } from '../types/customer'
+import type { Order } from '../types/customer'
 import type { HomeOrderFilter } from '../types/home-navigation'
 import { syncOrdersAfterMutation } from '../services/order-change-sync'
-import { getFriendList, getUser, shareOrder } from '../services/api-client'
+import {
+  deleteEnterpriseOrder,
+  dispatchEnterpriseOrder,
+  getFriendList,
+  getUser,
+  returnEnterpriseOrder,
+  shareOrder
+} from '../services/api-client'
+import {
+  getEnterpriseWorkspaceInfo,
+  loadEnterpriseDevices,
+  loadEnterpriseOrders,
+  type WorkspaceDevice,
+  type WorkspaceOrder
+} from '../services/enterprise-workspace'
+import { buildElectronSyncOptions, pullNow } from '../services/sync-service'
 
 type DispatchTarget = { orderId: string; deviceId: string } | null
 type OrderFilter = HomeOrderFilter
@@ -40,8 +55,8 @@ interface OrderPanelProps {
 }
 
 export function OrderPanel({ initialFilter = 'pending', initialDate = '' }: OrderPanelProps): JSX.Element {
-  const [allOrders, setAllOrders] = useState<Order[]>([])
-  const [idleDevices, setIdleDevices] = useState<Device[]>([])
+  const [allOrders, setAllOrders] = useState<WorkspaceOrder[]>([])
+  const [idleDevices, setIdleDevices] = useState<WorkspaceDevice[]>([])
   const [filter, setFilter] = useState<OrderFilter>(initialFilter)
   const [dispatchTarget, setDispatchTarget] = useState<DispatchTarget>(null)
   const [serialNumber, setSerialNumber] = useState('')
@@ -67,19 +82,52 @@ export function OrderPanel({ initialFilter = 'pending', initialDate = '' }: Orde
   const [dispatchDate, setDispatchDate] = useState<string>(initialDate)
   const [page, setPage] = useState(1)
   const [dispatchOk, setDispatchOk] = useState<{ orderId: string; name: string; serial: string; tracking: string; device: string } | null>(null)
+  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([])
+  const [enterpriseMode, setEnterpriseMode] = useState(false)
+  const [enterpriseName, setEnterpriseName] = useState('')
 
   useEffect(() => {
-    loadData()
+    let cancelled = false
+
+    async function bootstrap() {
+      const workspace = await getEnterpriseWorkspaceInfo()
+      if (cancelled) return
+      setEnterpriseMode(workspace.enabled)
+      setEnterpriseName(workspace.enterpriseName)
+      await loadData(workspace.enabled)
+    }
+
+    bootstrap().catch(() => {})
+    return () => { cancelled = true }
   }, [])
 
-  function loadData() {
-    window.electronAPI.getAllOrders().then(setAllOrders)
-    window.electronAPI.getDevices('idle').then(setIdleDevices)
+  async function loadData(useEnterpriseMode = enterpriseMode) {
+    const [orders, devices] = useEnterpriseMode
+      ? await Promise.all([loadEnterpriseOrders(), loadEnterpriseDevices()])
+      : await Promise.all([window.electronAPI.getAllOrders(), window.electronAPI.getDevices('idle')])
+
+    const nextOrders = orders as WorkspaceOrder[]
+    const nextIdleDevices = useEnterpriseMode
+      ? (devices as WorkspaceDevice[]).filter(device => device.status === 'idle')
+      : devices as WorkspaceDevice[]
+
+    setAllOrders(nextOrders)
+    setIdleDevices(nextIdleDevices)
+    setSelectedOrderIds(prev => prev.filter(id => nextOrders.some(order => order.id === id)))
+  }
+
+  async function refreshAfterEnterpriseMutation() {
+    try {
+      await pullNow(buildElectronSyncOptions())
+    } catch {
+      // Enterprise list is server-driven; local pull failure should not block the refreshed view.
+    }
+    await loadData(true)
   }
 
   // Client-side filtering
   const filteredOrders = useMemo(() => {
-    let list: Order[]
+    let list: WorkspaceOrder[]
     const today = getTodayStr()
     const tomorrow = getTomorrowStr()
     switch (filter) {
@@ -137,6 +185,7 @@ export function OrderPanel({ initialFilter = 'pending', initialDate = '' }: Orde
   function changeFilter(f: OrderFilter) {
     setFilter(f)
     setPage(1)
+    setSelectedOrderIds([])
     if (f === 'expiring') {
       setDispatchDate('')  // clear date filter, expiring has its own date logic
     }
@@ -144,27 +193,35 @@ export function OrderPanel({ initialFilter = 'pending', initialDate = '' }: Orde
   function changeDispatchDate(d: string) {
     setDispatchDate(d)
     setPage(1)
+    setSelectedOrderIds([])
   }
   function changeSearch(q: string) {
     setSearchQuery(q)
     setPage(1)
+    setSelectedOrderIds([])
   }
   function goToday() {
     setFilter('pending')
     setDispatchDate(getTodayStr())
     setPage(1)
+    setSelectedOrderIds([])
   }
 
-  function openDispatch(order: Order) {
+  function openDispatch(order: WorkspaceOrder) {
     setDispatchTarget({ orderId: order.id, deviceId: '' })
     setSerialNumber('')
     setTrackingNumber('')
   }
 
-  async function openShareDialog(order: Order) {
+  async function openShareDialog(order: WorkspaceOrder) {
     const user = getUser()
     if (user?.tier === 'free') {
       alert('好友代发需要 Pro+ 及以上版本，请先升级')
+      return
+    }
+
+    if (enterpriseMode && order.ownerEmail && order.ownerEmail !== user?.email) {
+      alert('企业成员的共享订单目前不能直接用好友代发，请由订单所属账号发起分享')
       return
     }
 
@@ -185,8 +242,15 @@ export function OrderPanel({ initialFilter = 'pending', initialDate = '' }: Orde
     if (!dispatchTarget || !serialNumber.trim() || !trackingNumber.trim()) return
     setDispatching(true)
     try {
-      const order = await window.electronAPI.dispatchOrder(dispatchTarget.orderId, serialNumber.trim(), trackingNumber.trim())
-      await syncOrdersAfterMutation()
+      const order = enterpriseMode
+        ? (await dispatchEnterpriseOrder(dispatchTarget.orderId, serialNumber.trim(), trackingNumber.trim())).order
+        : await window.electronAPI.dispatchOrder(dispatchTarget.orderId, serialNumber.trim(), trackingNumber.trim())
+
+      if (enterpriseMode) {
+        await refreshAfterEnterpriseMutation()
+      } else {
+        await syncOrdersAfterMutation()
+      }
       setDispatchTarget(null)
       setDispatchOk({
         orderId: order.id,
@@ -195,7 +259,7 @@ export function OrderPanel({ initialFilter = 'pending', initialDate = '' }: Orde
         tracking: trackingNumber.trim(),
         device: order.deviceId
       })
-      loadData()
+      await loadData(enterpriseMode)
       setTimeout(() => setDispatchOk(null), 10000)
     } catch (err: any) {
       alert(err.message || '发货失败')
@@ -205,17 +269,29 @@ export function OrderPanel({ initialFilter = 'pending', initialDate = '' }: Orde
   }
 
   async function handleReturn(orderId: string) {
+    if (enterpriseMode) {
+      await returnEnterpriseOrder(orderId)
+      await refreshAfterEnterpriseMutation()
+      return
+    }
+
     await window.electronAPI.returnOrder(orderId)
     await syncOrdersAfterMutation()
-    loadData()
+    await loadData()
   }
 
-  async function handleDelete(order: Order) {
+  async function handleDelete(order: WorkspaceOrder) {
     if (!confirm(`确认删除订单「${order.customerName}」？删除后会同步到云端。`)) return
     try {
+      if (enterpriseMode) {
+        await deleteEnterpriseOrder(order.id)
+        await refreshAfterEnterpriseMutation()
+        return
+      }
+
       await window.electronAPI.deleteOrder(order.id)
       await syncOrdersAfterMutation()
-      loadData()
+      await loadData()
     } catch (err: any) {
       alert(err.message || '删除订单失败')
     }
@@ -261,7 +337,7 @@ export function OrderPanel({ initialFilter = 'pending', initialDate = '' }: Orde
       setNewRentalStart('')
       setNewRentalEnd('')
       setShowAddForm(false)
-      loadData()
+      await loadData(enterpriseMode)
     } finally {
       setCreating(false)
     }
@@ -277,6 +353,79 @@ export function OrderPanel({ initialFilter = 'pending', initialDate = '' }: Orde
     }
     return list
   }, [dispatchTarget, idleDevices, serialNumber])
+
+  const pendingOrdersOnPage = useMemo(() => (
+    orders.filter(order => order.status === 'pending')
+  ), [orders])
+
+  const selectedPendingOrders = useMemo(() => (
+    allOrders.filter(order => selectedOrderIds.includes(order.id) && order.status === 'pending')
+  ), [allOrders, selectedOrderIds])
+
+  const allPendingOnPageSelected = pendingOrdersOnPage.length > 0 &&
+    pendingOrdersOnPage.every(order => selectedOrderIds.includes(order.id))
+
+  function toggleOrderSelection(orderId: string) {
+    setSelectedOrderIds(prev => (
+      prev.includes(orderId) ? prev.filter(id => id !== orderId) : [...prev, orderId]
+    ))
+  }
+
+  function togglePageSelection() {
+    const pendingIdsOnPage = pendingOrdersOnPage.map(order => order.id)
+    if (allPendingOnPageSelected) {
+      setSelectedOrderIds(prev => prev.filter(id => !pendingIdsOnPage.includes(id)))
+      return
+    }
+
+    setSelectedOrderIds(prev => Array.from(new Set([...prev, ...pendingIdsOnPage])))
+  }
+
+  async function handleBulkDeleteOrders() {
+    if (selectedPendingOrders.length === 0) {
+      alert('请先选择待发货订单')
+      return
+    }
+
+    if (!confirm(`确认删除选中的 ${selectedPendingOrders.length} 个待发货订单吗？删除后会同步到云端。`)) {
+      return
+    }
+
+    let deletedCount = 0
+    const failedCustomers: string[] = []
+
+    for (const order of selectedPendingOrders) {
+      try {
+        const deleted = enterpriseMode
+          ? (await deleteEnterpriseOrder(order.id)).success
+          : await window.electronAPI.deleteOrder(order.id)
+        if (deleted) {
+          deletedCount += 1
+        } else {
+          failedCustomers.push(order.customerName)
+        }
+      } catch {
+        failedCustomers.push(order.customerName)
+      }
+    }
+
+    if (deletedCount === 0) {
+      alert(`未能删除订单：${failedCustomers.join('、') || '请选择待发货订单'}`)
+      return
+    }
+
+    if (enterpriseMode) {
+      await refreshAfterEnterpriseMutation()
+    } else {
+      await syncOrdersAfterMutation()
+    }
+    setSelectedOrderIds(prev => prev.filter(id => !selectedPendingOrders.some(order => order.id === id)))
+    await loadData(enterpriseMode)
+
+    if (failedCustomers.length > 0) {
+      alert(`已删除 ${deletedCount} 个订单，以下订单删除失败：${failedCustomers.join('、')}`)
+    }
+  }
 
   // Count for each filter
   const today = getTodayStr()
@@ -320,9 +469,24 @@ export function OrderPanel({ initialFilter = 'pending', initialDate = '' }: Orde
           </button>
         </div>
       )}
+
+      {enterpriseMode && (
+        <div style={{
+          marginBottom: '12px',
+          padding: '12px 14px',
+          borderRadius: '12px',
+          border: '1px solid #d8dcff',
+          background: '#f6f8ff',
+          fontSize: '12px',
+          color: '#4f46e5',
+          lineHeight: 1.7
+        }}>
+          当前为企业视图，正在查看「{enterpriseName}」的全部订单。企业成员的改动会在 30 秒内自动刷新到这里。
+        </div>
+      )}
       {/* Top bar: add order + today shortcut */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
           <button
             className="settings-panel__btn settings-panel__btn--secondary"
             onClick={() => setShowAddForm(!showAddForm)}
@@ -336,6 +500,31 @@ export function OrderPanel({ initialFilter = 'pending', initialDate = '' }: Orde
           >
             📦 今天发货 ({counts.todayShip})
           </button>
+          <button
+            className="settings-panel__btn settings-panel__btn--secondary"
+            style={{ fontSize: '12px', height: '30px' }}
+            onClick={togglePageSelection}
+            disabled={pendingOrdersOnPage.length === 0}
+          >
+            {allPendingOnPageSelected ? '取消本页选择' : '选择本页待发货'}
+          </button>
+          <button
+            className="settings-panel__btn settings-panel__btn--secondary"
+            style={{ fontSize: '12px', height: '30px' }}
+            onClick={() => setSelectedOrderIds([])}
+            disabled={selectedOrderIds.length === 0}
+          >
+            清空已选 ({selectedOrderIds.length})
+          </button>
+          <button
+            className="settings-panel__btn settings-panel__btn--secondary"
+            style={{ fontSize: '12px', height: '30px', color: '#c62828', borderColor: '#ffcdd2' }}
+            onClick={() => { handleBulkDeleteOrders().catch(() => {}) }}
+            disabled={selectedPendingOrders.length === 0}
+          >
+            删除已选 ({selectedPendingOrders.length})
+          </button>
+          <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>仅待发货订单支持批量删除</span>
         </div>
       </div>
 
@@ -432,6 +621,17 @@ export function OrderPanel({ initialFilter = 'pending', initialDate = '' }: Orde
 
         {orders.map(order => (
           <div key={order.id} className="order-card">
+            <div style={{ width: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              {order.status === 'pending' && (
+                <input
+                  type="checkbox"
+                  checked={selectedOrderIds.includes(order.id)}
+                  onChange={() => toggleOrderSelection(order.id)}
+                  style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: 'var(--accent)' }}
+                  title={`选择订单 ${order.customerName}`}
+                />
+              )}
+            </div>
             <div className="order-card__info">
               <div className="order-card__name">
                 {order.customerName}
@@ -444,6 +644,7 @@ export function OrderPanel({ initialFilter = 'pending', initialDate = '' }: Orde
                 {order.csRep && <span> · 客服 {order.csRep}</span>}
                 <span> · {order.customerPhone}</span>
                 <span> · {order.deviceId}</span>
+                {enterpriseMode && order.ownerEmail ? <span> · 所属 {order.ownerEmail}</span> : null}
               </div>
               <div className="order-card__address">{order.customerAddress}</div>
               {order.remarks && (
@@ -490,9 +691,11 @@ export function OrderPanel({ initialFilter = 'pending', initialDate = '' }: Orde
                   <button className="settings-panel__btn settings-panel__btn--primary" style={{ fontSize: '12px', height: '30px' }} onClick={() => openDispatch(order)}>
                     发货
                   </button>
-                  <button className="settings-panel__btn settings-panel__btn--secondary" style={{ fontSize: '12px', height: '30px' }} onClick={() => openShareDialog(order)}>
-                    分享代发
-                  </button>
+                  {(!enterpriseMode || !order.ownerEmail || order.ownerEmail === getUser()?.email) && (
+                    <button className="settings-panel__btn settings-panel__btn--secondary" style={{ fontSize: '12px', height: '30px' }} onClick={() => openShareDialog(order)}>
+                      分享代发
+                    </button>
+                  )}
                   <button className="settings-panel__btn settings-panel__btn--secondary" style={{ fontSize: '12px', height: '30px' }} onClick={() => handleDelete(order)}>
                     删除
                   </button>

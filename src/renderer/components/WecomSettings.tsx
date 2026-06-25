@@ -1,13 +1,15 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { getApiBaseUrl, setApiBaseUrl, getMySubscription, getSubscriptionPlans, redeemCode, redeemRechargeCode, getProfile, getLatestAppVersion } from '../services/api-client'
 import type { SubscriptionInfo, TierInfo, AppVersionInfo, ClientPlatformInfo } from '../services/api-client'
 import { buildUpdatePackageOptions, formatDetectedPlatform } from '../utils/update-packages'
-import { buildSupportMailto, OFFICIAL_WEBSITE_URL } from '../utils/external-links'
+import { copySupportEmailToClipboard, OFFICIAL_WEBSITE_URL, SUPPORT_EMAIL, SUPPORT_EMAIL_MAILTO_URL } from '../utils/external-links'
 import { getUpdateProgressLabel, type RendererUpdateProgress } from '../utils/update-progress'
 
 interface WecomSettingsProps { onRefreshUser?: () => void }
 
 export function WecomSettings({ onRefreshUser }: WecomSettingsProps): JSX.Element {
+  const redeemSectionRef = useRef<HTMLDivElement | null>(null)
+  const redeemInputRef = useRef<HTMLInputElement | null>(null)
   const [webhookUrl, setWebhookUrl] = useState('')
   const [enabled, setEnabled] = useState(false)
   const [channelType, setChannelType] = useState<'wecom' | 'platform'>('wecom')
@@ -23,6 +25,7 @@ export function WecomSettings({ onRefreshUser }: WecomSettingsProps): JSX.Elemen
   const [updatingApp, setUpdatingApp] = useState(false)
   const [updateMessage, setUpdateMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [updateProgress, setUpdateProgress] = useState<RendererUpdateProgress | null>(null)
+  const [contactMessage, setContactMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   // Subscription
   const [sub, setSub] = useState<SubscriptionInfo | null>(null)
@@ -165,10 +168,28 @@ export function WecomSettings({ onRefreshUser }: WecomSettingsProps): JSX.Elemen
 
   async function handleContactSupport() {
     try {
-      await window.electronAPI.openExternalUrl(buildSupportMailto())
-    } catch (err: any) {
-      setUpdateMessage({ type: 'error', text: err.message || '打开技术支持邮箱失败' })
+      await window.electronAPI.openExternalUrl(SUPPORT_EMAIL_MAILTO_URL)
+      setContactMessage({
+        type: 'success',
+        text: `已打开默认邮件应用，可直接发送到 ${SUPPORT_EMAIL}`
+      })
+    } catch {
+      const copied = await copySupportEmailToClipboard()
+      setContactMessage({
+        type: copied ? 'success' : 'error',
+        text: copied ? `未能直接打开邮件应用，已复制技术支持邮箱：${SUPPORT_EMAIL}` : `技术支持邮箱：${SUPPORT_EMAIL}`
+      })
     }
+    window.setTimeout(() => setContactMessage(null), 4000)
+  }
+
+  function handleJumpToRedeem(tierName: string) {
+    setRedeemMsg({
+      type: 'success',
+      text: `升级到 ${tierName} 需要激活码，已为你定位到下方兑换区域。`
+    })
+    redeemSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    window.setTimeout(() => redeemInputRef.current?.focus(), 250)
   }
 
   const tierColors: Record<string, string> = {
@@ -243,9 +264,7 @@ export function WecomSettings({ onRefreshUser }: WecomSettingsProps): JSX.Elemen
                   </ul>
                   {tierKey !== 'free' && !isCurrent && (
                     <button
-                      onClick={() => {
-                        window.open('https://example.com/upgrade?tier=' + tierKey, '_blank')
-                      }}
+                      onClick={() => handleJumpToRedeem(t.name)}
                       style={{
                         width: '100%', marginTop: '12px', padding: '8px 0',
                         background: tierColors[tierKey], color: '#fff', border: 'none',
@@ -267,13 +286,14 @@ export function WecomSettings({ onRefreshUser }: WecomSettingsProps): JSX.Elemen
       <div style={{
         background: 'var(--bg-secondary)', borderRadius: '12px', padding: '20px',
         border: '1px solid var(--border)', marginBottom: '16px'
-      }}>
+      }} ref={redeemSectionRef}>
         <h4 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px' }}>🎫 激活码兑换</h4>
         <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginBottom: '12px' }}>
           输入激活码升级到 Pro+ 或 Plus 版
         </p>
         <div style={{ display: 'flex', gap: '8px' }}>
           <input
+            ref={redeemInputRef}
             className="form-input"
             style={{ flex: 1 }}
             placeholder="输入激活码，如 RJFK-XXXXXXXX"
@@ -423,9 +443,9 @@ export function WecomSettings({ onRefreshUser }: WecomSettingsProps): JSX.Elemen
         background: 'var(--bg-secondary)', borderRadius: '12px', padding: '20px',
         border: '1px solid var(--border)', marginBottom: '16px'
       }}>
-        <h4 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px' }}>🌐 关于 arox</h4>
+        <h4 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px' }}>🌐 关于 arocx</h4>
         <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginBottom: '12px', lineHeight: 1.7 }}>
-          官网提供产品介绍、安装下载和最新版本说明。遇到问题也可以直接通过技术支持邮箱反馈。
+          官网提供产品介绍、安装下载和最新版本说明。遇到问题也可以直接复制技术支持邮箱反馈。
         </p>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <button
@@ -443,6 +463,20 @@ export function WecomSettings({ onRefreshUser }: WecomSettingsProps): JSX.Elemen
             技术支持
           </button>
         </div>
+        {contactMessage && (
+          <div style={{
+            marginTop: '12px',
+            padding: '10px 12px',
+            borderRadius: '10px',
+            fontSize: '12px',
+            lineHeight: 1.7,
+            background: contactMessage.type === 'success' ? '#f1f8e9' : '#fff8e1',
+            color: contactMessage.type === 'success' ? '#2e7d32' : '#b26a00',
+            border: `1px solid ${contactMessage.type === 'success' ? '#c8e6c9' : '#ffe0b2'}`
+          }}>
+            {contactMessage.text}
+          </div>
+        )}
       </div>
 
       {/* ---- Version ---- */}

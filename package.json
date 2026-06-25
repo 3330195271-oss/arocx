@@ -1,6 +1,6 @@
 {
   "name": "arocx",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "arocx - 设备库存管理与订单发货系统",
   "main": "./out/main/index.js",
   "scripts": {
@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "cors": "^2.8.6",
+    "electron-updater": "^6.8.9",
     "express": "^5.2.1",
     "multer": "^2.1.1",
     "react": "^18.3.1",
@@ -43,9 +44,15 @@
     "files": [
       "out/**/*"
     ],
+    "extraResources": [
+      {
+        "from": "resources/logo-aro-icon.png",
+        "to": "logo-aro-icon.png"
+      }
+    ],
     "win": {
       "target": "nsis",
-      "icon": "resources/logo.png"
+      "icon": "resources/logo-aro-icon.png"
     },
     "nsis": {
       "oneClick": false,
@@ -57,7 +64,7 @@
         "dmg",
         "zip"
       ],
-      "icon": "resources/logo.png",
+      "icon": "resources/logo-aro-icon.png",
       "category": "public.app-category.business",
       "hardenedRuntime": true,
       "gatekeeperAssess": false

@@ -20,8 +20,8 @@ export function formatBytes(bytes: number): string {
 export function getUpdateProgressLabel(progress: RendererUpdateProgress | null): string {
   if (!progress) return ''
   if (progress.stage === 'preparing') return '准备下载更新包...'
-  if (progress.stage === 'downloaded') return '下载完成，正在准备打开安装包...'
-  if (progress.stage === 'launching') return '正在启动安装流程...'
+  if (progress.stage === 'downloaded') return '下载完成，正在准备安装更新...'
+  if (progress.stage === 'launching') return '正在启动更新安装流程...'
   if (!progress.total) return `正在下载更新包... ${formatBytes(progress.transferred)}`
   return `正在下载更新包... ${progress.percent}% (${formatBytes(progress.transferred)} / ${formatBytes(progress.total)})`
 }

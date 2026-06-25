@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { login, register, sendVerifyCode } from '../services/api-client'
 
+const logoIcon = new URL('../../../resources/logo-aro-icon.png', import.meta.url).href
+
 interface LoginPageProps {
   onLogin: () => Promise<void> | void
   notice?: string | null
@@ -82,7 +84,18 @@ export function LoginPage({ onLogin, notice = null }: LoginPageProps): JSX.Eleme
         borderRadius: '16px', boxShadow: 'var(--shadow-lg)'
       }}>
         <div style={{ textAlign: 'center', marginBottom: '28px' }}>
-          <div style={{ fontSize: '36px', marginBottom: '8px' }}>📦</div>
+          <img
+            src={logoIcon}
+            alt="arocx"
+            style={{
+              width: '52px',
+              height: '52px',
+              display: 'block',
+              margin: '0 auto 10px',
+              borderRadius: '14px',
+              boxShadow: '0 8px 22px rgba(0, 0, 0, 0.08)'
+            }}
+          />
           <h2 style={{ fontSize: '20px', fontWeight: 600, margin: 0 }}>arocx</h2>
           <p style={{ fontSize: '13px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
             {mode === 'login' ? '登录你的账号' : '创建新账号'}

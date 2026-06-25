@@ -5,6 +5,8 @@ import { get as httpGet } from 'http'
 import { get as httpsGet } from 'https'
 import { app, shell } from 'electron'
 import { basename, extname, join } from 'path'
+import type { GithubOptions } from 'builder-util-runtime'
+import { NsisUpdater } from 'electron-updater'
 
 type UpdateInstallResult = {
   success: boolean
@@ -19,7 +21,17 @@ export type UpdateDownloadProgress = {
   total: number | null
 }
 
+type ParsedGithubRelease = {
+  owner: string
+  repo: string
+  host: string
+  protocol: 'https' | 'http'
+  vPrefixedTagName: boolean
+  previousBlockmapBaseUrlOverride: string | null
+}
+
 const MAX_REDIRECTS = 5
+let activeWindowsAutoUpdate: Promise<UpdateInstallResult> | null = null
 
 function sanitizeFileName(url: string): string {
   try {
@@ -44,6 +56,84 @@ function emitProgress(
   progress: UpdateDownloadProgress
 ): void {
   onProgress?.(progress)
+}
+
+function parseGithubReleaseAsset(downloadUrl: string, currentVersion: string): ParsedGithubRelease | null {
+  try {
+    const parsed = new URL(downloadUrl)
+    if (parsed.hostname !== 'github.com') return null
+
+    const parts = parsed.pathname.replace(/^\/+|\/+$/g, '').split('/')
+    if (parts.length < 6 || parts[2] !== 'releases' || parts[3] !== 'download') {
+      return null
+    }
+
+    const owner = parts[0]
+    const repo = parts[1]
+    const releaseTag = parts[4] || ''
+    if (!owner || !repo || !releaseTag) return null
+
+    const tagVersionMatch = releaseTag.match(/\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?/)
+    const previousReleaseTag = tagVersionMatch
+      ? releaseTag.replace(tagVersionMatch[0], currentVersion)
+      : (releaseTag.startsWith('v') ? `v${currentVersion}` : currentVersion)
+
+    return {
+      owner,
+      repo,
+      host: parsed.host,
+      protocol: parsed.protocol === 'http:' ? 'http' : 'https',
+      vPrefixedTagName: releaseTag.startsWith('v'),
+      previousBlockmapBaseUrlOverride: `${parsed.protocol}//${parsed.host}/${owner}/${repo}/releases/download/${previousReleaseTag}`
+    }
+  } catch {
+    return null
+  }
+}
+
+function normalizeAutoUpdateError(error: any): Error {
+  const rawMessage = String(error?.message || error || '未知错误')
+
+  if (/latest\.yml/i.test(rawMessage) && /(404|Cannot find|Not Found)/i.test(rawMessage)) {
+    return new Error('Windows 自动更新缺少 latest.yml，请把 latest.yml 和 .blockmap 一起上传到 GitHub Release')
+  }
+
+  if (/No published versions on GitHub/i.test(rawMessage)) {
+    return new Error('GitHub Release 中还没有可用的 Windows 更新版本')
+  }
+
+  if (/net::ERR_INTERNET_DISCONNECTED|ENOTFOUND|ECONNREFUSED|ECONNRESET|ETIMEDOUT/i.test(rawMessage)) {
+    return new Error('连接更新服务器失败，请检查网络后重试')
+  }
+
+  return new Error(rawMessage)
+}
+
+function createWindowsUpdater(downloadUrl: string): NsisUpdater | null {
+  const currentVersion = app.getVersion()
+  const githubRelease = parseGithubReleaseAsset(downloadUrl, currentVersion)
+  if (!githubRelease) return null
+
+  const feedConfig: GithubOptions = {
+    provider: 'github',
+    owner: githubRelease.owner,
+    repo: githubRelease.repo,
+    host: githubRelease.host,
+    protocol: githubRelease.protocol,
+    private: false,
+    releaseType: 'release',
+    vPrefixedTagName: githubRelease.vPrefixedTagName
+  }
+
+  const updater = new NsisUpdater(feedConfig)
+  updater.autoDownload = false
+  updater.autoInstallOnAppQuit = true
+  updater.autoRunAppAfterInstall = true
+  updater.disableDifferentialDownload = false
+  updater.previousBlockmapBaseUrlOverride = githubRelease.previousBlockmapBaseUrlOverride
+  updater.logger = null
+
+  return updater
 }
 
 async function downloadFile(
@@ -135,7 +225,7 @@ async function downloadFile(
   })
 }
 
-export async function downloadAndInstallUpdate(
+async function downloadAndOpenInstaller(
   downloadUrl: string,
   onProgress?: (progress: UpdateDownloadProgress) => void
 ): Promise<UpdateInstallResult> {
@@ -182,4 +272,125 @@ export async function downloadAndInstallUpdate(
     message: '安装包已下载完成，已为你打开安装包，请按系统提示完成更新。',
     filePath: installerPath
   }
+}
+
+async function downloadAndInstallWindowsUpdate(
+  downloadUrl: string,
+  onProgress?: (progress: UpdateDownloadProgress) => void
+): Promise<UpdateInstallResult> {
+  const updater = createWindowsUpdater(downloadUrl)
+  if (!updater || !app.isPackaged) {
+    return downloadAndOpenInstaller(downloadUrl, onProgress)
+  }
+
+  if (activeWindowsAutoUpdate) {
+    return activeWindowsAutoUpdate
+  }
+
+  activeWindowsAutoUpdate = new Promise<UpdateInstallResult>((resolve, reject) => {
+    let settled = false
+
+    const cleanup = () => {
+      updater.removeAllListeners('checking-for-update')
+      updater.removeAllListeners('update-available')
+      updater.removeAllListeners('update-not-available')
+      updater.removeAllListeners('download-progress')
+      updater.removeAllListeners('update-downloaded')
+      updater.removeAllListeners('error')
+    }
+
+    const finishSuccess = (result: UpdateInstallResult) => {
+      if (settled) return
+      settled = true
+      cleanup()
+      resolve(result)
+    }
+
+    const finishError = (error: any) => {
+      if (settled) return
+      settled = true
+      cleanup()
+      reject(normalizeAutoUpdateError(error))
+    }
+
+    updater.once('checking-for-update', () => {
+      emitProgress(onProgress, {
+        stage: 'preparing',
+        percent: 0,
+        transferred: 0,
+        total: null
+      })
+    })
+
+    updater.once('update-available', () => {
+      void updater.downloadUpdate().catch(finishError)
+    })
+
+    updater.once('update-not-available', () => {
+      finishSuccess({
+        success: true,
+        message: '当前已经是最新版本，无需安装更新。'
+      })
+    })
+
+    updater.on('download-progress', info => {
+      emitProgress(onProgress, {
+        stage: 'downloading',
+        percent: Math.max(0, Math.min(100, Math.round(info.percent || 0))),
+        transferred: info.transferred,
+        total: info.total || null
+      })
+    })
+
+    updater.once('update-downloaded', () => {
+      emitProgress(onProgress, {
+        stage: 'downloaded',
+        percent: 100,
+        transferred: 0,
+        total: null
+      })
+      emitProgress(onProgress, {
+        stage: 'launching',
+        percent: 100,
+        transferred: 0,
+        total: null
+      })
+
+      finishSuccess({
+        success: true,
+        message: '更新已下载完成，正在自动安装并重启软件。'
+      })
+
+      setTimeout(() => {
+        try {
+          updater.quitAndInstall(true, true)
+        } catch (error) {
+          console.error('[update] quitAndInstall error:', error)
+        }
+      }, 400)
+    })
+
+    updater.once('error', finishError)
+
+    void updater.checkForUpdates().then(result => {
+      if (!result) {
+        finishError(new Error('当前环境暂时无法使用自动更新'))
+      }
+    }).catch(finishError)
+  }).finally(() => {
+    activeWindowsAutoUpdate = null
+  })
+
+  return activeWindowsAutoUpdate
+}
+
+export async function downloadAndInstallUpdate(
+  downloadUrl: string,
+  onProgress?: (progress: UpdateDownloadProgress) => void
+): Promise<UpdateInstallResult> {
+  if (process.platform === 'win32') {
+    return downloadAndInstallWindowsUpdate(downloadUrl, onProgress)
+  }
+
+  return downloadAndOpenInstaller(downloadUrl, onProgress)
 }

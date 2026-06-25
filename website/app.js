@@ -1,16 +1,16 @@
 const fallbackConfig = {
-  latestVersion: '1.0.6',
-  downloadUrlWindows: 'https://github.com/3330195271-oss/arocx/releases/download/v1.0.6/arocx-1.0.6-x64.exe',
-  downloadUrlMacArm64: 'https://github.com/3330195271-oss/arocx/releases/download/v1.0.6/arocx-1.0.6-arm64-mac.dmg',
+  latestVersion: '1.0.7',
+  downloadUrlWindows: 'https://github.com/3330195271-oss/arocx/releases/download/v1.0.7/arocx-1.0.7-x64.exe',
+  downloadUrlMacArm64: 'https://github.com/3330195271-oss/arocx/releases/download/v1.0.7/arocx-1.0.7-arm64-mac.dmg',
   downloadUrlMacX64: '',
-  publishedAt: '2026-06-24T22:30:00+08:00',
-  releaseNotes: `【1.0.6 本次更新】
+  publishedAt: '2026-06-25T19:46:59+08:00',
+  releaseNotes: `【1.0.7 本次更新】
 
-1. 新增企业协作，Pro+ 用户可创建企业并共享订单与库存数据。
-2. 新增好友代发，可把待发货订单分享给好友协助发货。
-3. 订单管理支持删除订单，并补充起租日、到期日、发货日等关键信息展示。
-4. 更新流程增加下载进度提示，并补充官网入口与技术支持邮箱。
-5. 单设备登录与云端同步链路已进一步优化，使用更稳定。`
+1. 企业协作升级：企业成员进入订单管理、设备库存、发货信息后可直接查看企业全部数据，并在 30 秒内自动刷新同步。
+2. Windows 版升级体验优化：支持自动下载安装更新，并显示下载进度。
+3. 飞书接入补充完整教程，软件内可直接打开接入说明页。
+4. 首页与设置体验优化：官网入口、技术支持邮箱、更新弹窗与安装包选择更清晰。
+5. 多项稳定性修复：修复技术支持入口、设置页升级按钮等细节问题，云端协作更稳定。`
 }
 
 const endpoints = [

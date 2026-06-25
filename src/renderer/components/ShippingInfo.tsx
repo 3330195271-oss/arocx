@@ -1,26 +1,46 @@
 import { useEffect, useState, useMemo } from 'react'
 import type { Order } from '../types/customer'
+import { forwardEnterpriseOrder, returnEnterpriseOrder } from '../services/api-client'
+import {
+  getEnterpriseWorkspaceInfo,
+  loadEnterpriseOrders,
+  type WorkspaceOrder
+} from '../services/enterprise-workspace'
 import { syncOrdersAfterMutation } from '../services/order-change-sync'
+import { buildElectronSyncOptions, pullNow } from '../services/sync-service'
 
 const PAGE_SIZE = 10
 
 export function ShippingInfo(): JSX.Element {
-  const [allOrders, setAllOrders] = useState<Order[]>([])
+  const [allOrders, setAllOrders] = useState<WorkspaceOrder[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [page, setPage] = useState(1)
+  const [enterpriseMode, setEnterpriseMode] = useState(false)
+  const [enterpriseName, setEnterpriseName] = useState('')
 
   // Forward modal state
-  const [forwardSource, setForwardSource] = useState<Order | null>(null)
+  const [forwardSource, setForwardSource] = useState<WorkspaceOrder | null>(null)
   const [targetSearch, setTargetSearch] = useState('')
   const [selectedTargetId, setSelectedTargetId] = useState<string | null>(null)
   const [forwardTracking, setForwardTracking] = useState('')
   const [forwarding, setForwarding] = useState(false)
 
   useEffect(() => {
-    window.electronAPI.getAllOrders().then(setAllOrders)
+    let cancelled = false
+
+    async function bootstrap() {
+      const workspace = await getEnterpriseWorkspaceInfo()
+      if (cancelled) return
+      setEnterpriseMode(workspace.enabled)
+      setEnterpriseName(workspace.enterpriseName)
+      await reload(workspace.enabled)
+    }
+
+    bootstrap().catch(() => {})
+    return () => { cancelled = true }
   }, [])
 
-    function isOverdue(order: Order): boolean {
+  function isOverdue(order: Order): boolean {
     if (order.status === 'returned') return false
     if (!order.rentalEnd) return false
     const today = new Date(); today.setHours(0, 0, 0, 0)
@@ -28,27 +48,50 @@ export function ShippingInfo(): JSX.Element {
     return Math.floor((today.getTime() - end.getTime()) / 86400000) > 2
   }
 
-  function reload() {
-    window.electronAPI.getAllOrders().then(setAllOrders)
+  async function reload(useEnterpriseMode = enterpriseMode) {
+    const nextOrders = useEnterpriseMode
+      ? await loadEnterpriseOrders()
+      : await window.electronAPI.getAllOrders()
+    setAllOrders(nextOrders)
+  }
+
+  async function refreshAfterEnterpriseMutation() {
+    try {
+      await pullNow(buildElectronSyncOptions())
+    } catch {
+      // Enterprise shipping list is fetched from server directly.
+    }
+    await reload(true)
   }
 
   async function handleReturn(orderId: string) {
+    if (enterpriseMode) {
+      await returnEnterpriseOrder(orderId)
+      await refreshAfterEnterpriseMutation()
+      return
+    }
+
     await window.electronAPI.returnOrder(orderId)
     await syncOrdersAfterMutation()
-    reload()
+    await reload()
   }
 
   async function handleForward() {
     if (!forwardSource || !selectedTargetId || !forwardTracking.trim()) return
     setForwarding(true)
     try {
-      await window.electronAPI.forwardOrder(forwardSource.id, selectedTargetId, forwardTracking.trim())
-      await syncOrdersAfterMutation()
+      if (enterpriseMode) {
+        await forwardEnterpriseOrder(forwardSource.id, selectedTargetId, forwardTracking.trim())
+        await refreshAfterEnterpriseMutation()
+      } else {
+        await window.electronAPI.forwardOrder(forwardSource.id, selectedTargetId, forwardTracking.trim())
+        await syncOrdersAfterMutation()
+      }
       setForwardSource(null)
       setSelectedTargetId(null)
       setForwardTracking('')
       setTargetSearch('')
-      reload()
+      await reload(enterpriseMode)
     } catch (err: any) {
       alert(err.message || '转寄失败')
     } finally {
@@ -66,7 +109,8 @@ export function ShippingInfo(): JSX.Element {
         o.customerPhone.includes(q) ||
         o.csRep.toLowerCase().includes(q) ||
         o.serialNumber.toLowerCase().includes(q) ||
-        o.trackingNumber.toLowerCase().includes(q)
+        o.trackingNumber.toLowerCase().includes(q) ||
+        (o.ownerEmail || '').toLowerCase().includes(q)
       )
     }
     return list
@@ -99,7 +143,7 @@ export function ShippingInfo(): JSX.Element {
     return list.slice(0, 50) // limit for performance
   }, [allOrders, forwardSource, targetSearch])
 
-  function getForwardInfo(order: Order): string | null {
+  function getForwardInfo(order: WorkspaceOrder): string | null {
     if (order.forwardedFromOrderId) {
       const source = allOrders.find(o => o.id === order.forwardedFromOrderId)
       if (source) return `← 由「${source.customerName}」转寄`
@@ -117,6 +161,21 @@ export function ShippingInfo(): JSX.Element {
     <div className="order-panel" style={{ padding: '0 28px 20px', overflowY: 'auto', flex: 1 }}>
 
       {/* Search */}
+      {enterpriseMode && (
+        <div style={{
+          marginBottom: '12px',
+          padding: '12px 14px',
+          borderRadius: '12px',
+          border: '1px solid #d8dcff',
+          background: '#f6f8ff',
+          fontSize: '12px',
+          color: '#4f46e5',
+          lineHeight: 1.7
+        }}>
+          当前为企业视图，正在查看「{enterpriseName}」的全部发货记录。企业成员的改动会在 30 秒内自动刷新到这里。
+        </div>
+      )}
+
       <div style={{ display: 'flex', gap: '10px', marginBottom: '12px', alignItems: 'center' }}>
         <span style={{ fontSize: '13px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
           已发货 <strong>{shippingOrders.length}</strong> 单
@@ -160,6 +219,7 @@ export function ShippingInfo(): JSX.Element {
                   {order.csRep && <span> · 客服 {order.csRep}</span>}
                   <span> · {order.customerPhone}</span>
                   <span> · {order.deviceId}</span>
+                  {enterpriseMode && order.ownerEmail ? <span> · 所属 {order.ownerEmail}</span> : null}
                 </div>
 
                 {/* Tracking + Serial */}
@@ -249,7 +309,10 @@ export function ShippingInfo(): JSX.Element {
                   onClick={() => setSelectedTargetId(t.id)}
                 >
                   <span className="device-suggestion__serial">{t.customerName}</span>
-                  <span className="device-suggestion__meta">{t.customerPhone} · {t.deviceId} · 发货日 {t.shipmentDate || '-'} · 到期 {t.rentalEnd || '-'}</span>
+                  <span className="device-suggestion__meta">
+                    {t.customerPhone} · {t.deviceId} · 发货日 {t.shipmentDate || '-'} · 到期 {t.rentalEnd || '-'}
+                    {enterpriseMode && t.ownerEmail ? ` · 所属 ${t.ownerEmail}` : ''}
+                  </span>
                 </div>
               ))}
               {forwardTargets.length === 0 && (

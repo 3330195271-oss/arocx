@@ -1,24 +1,17 @@
 export const OFFICIAL_WEBSITE_URL = 'https://arocx.fun'
+export const FEISHU_SETUP_GUIDE_URL = 'https://arocx.fun/feishu-setup/'
 export const SUPPORT_EMAIL = 'ssdbh070605@gmail.com'
+export const SUPPORT_EMAIL_MAILTO_URL = `mailto:${SUPPORT_EMAIL}`
 
-export function buildSupportMailto(): string {
-  const params = new URLSearchParams({
-    subject: 'arocx 技术支持',
-    body: [
-      '您好，',
-      '',
-      '我在使用 arox 时遇到了以下问题：',
-      '',
-      '问题描述：',
-      '',
-      '复现步骤：',
-      '',
-      '当前版本：',
-      '设备系统：',
-      '',
-      '谢谢。'
-    ].join('\n')
-  })
+export async function copySupportEmailToClipboard(): Promise<boolean> {
+  if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
+    return false
+  }
 
-  return `mailto:${SUPPORT_EMAIL}?${params.toString()}`
+  try {
+    await navigator.clipboard.writeText(SUPPORT_EMAIL)
+    return true
+  } catch {
+    return false
+  }
 }

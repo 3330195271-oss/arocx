@@ -463,15 +463,6 @@ a {
   color: rgba(247, 249, 252, 0.48);
 }
 
-.download-item--secondary {
-  background: rgba(255, 255, 255, 0.06);
-  border-style: dashed;
-}
-
-.download-item--secondary span {
-  color: #d7e7ff;
-}
-
 .updates-panel {
   border-radius: 22px;
   padding: 28px;

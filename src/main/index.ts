@@ -1,4 +1,5 @@
 import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { existsSync } from 'fs'
 import { join } from 'path'
 import { APP_DISPLAY_NAME, APP_ID } from './app-data-dir'
 import { registerIpcHandlers } from './ipc-handlers'
@@ -10,7 +11,20 @@ if (process.platform === 'win32') {
   app.setAppUserModelId(APP_ID)
 }
 
+function resolveAppIcon(): string | undefined {
+  const candidates = [
+    join(process.resourcesPath, 'logo-aro-icon.png'),
+    join(process.resourcesPath, 'resources', 'logo-aro-icon.png'),
+    join(app.getAppPath(), 'resources', 'logo-aro-icon.png'),
+    join(process.cwd(), 'resources', 'logo-aro-icon.png'),
+    join(__dirname, '../../resources', 'logo-aro-icon.png')
+  ]
+
+  return candidates.find(filePath => existsSync(filePath))
+}
+
 function createWindow(): void {
+  const appIcon = resolveAppIcon()
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -19,6 +33,7 @@ function createWindow(): void {
     frame: false,
     titleBarStyle: 'hiddenInset',  // macOS: native traffic lights overlay
     backgroundColor: '#f5f5f7',
+    icon: appIcon,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
@@ -57,6 +72,10 @@ function registerWindowControls(): void {
 }
 
 app.whenReady().then(() => {
+  const appIcon = resolveAppIcon()
+  if (process.platform === 'darwin' && appIcon) {
+    app.dock.setIcon(appIcon)
+  }
   registerWindowControls()
   registerIpcHandlers()
   createWindow()

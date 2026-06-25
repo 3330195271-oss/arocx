@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>飞书接入教程：创建应用、开通权限与绑定多维表格 | ARO 仓序</title>
+    <meta
+      name="description"
+      content="ARO 仓序飞书同步详细接入说明：如何创建飞书企业自建应用、开通多维表格权限、发布版本、自动建表，以及手动填写 App ID、App Secret、App Token 和 Table ID。"
+    />
+    <link rel="canonical" href="https://arocx.fun/feishu-setup/" />
+    <meta name="robots" content="index,follow" />
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="飞书接入教程：创建应用、开通权限与绑定多维表格 | ARO 仓序" />
+    <meta
+      property="og:description"
+      content="给 Plus 用户使用的飞书同步接入教程，包含应用创建、权限、自动建表与常见问题排查。"
+    />
+    <meta property="og:url" content="https://arocx.fun/feishu-setup/" />
+    <meta property="og:image" content="https://arocx.fun/assets/feature-sync.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="飞书接入教程：创建应用、开通权限与绑定多维表格 | ARO 仓序" />
+    <meta
+      name="twitter:description"
+      content="从创建应用到自动建表，把 ARO 和飞书多维表格接起来。"
+    />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "HowTo",
+        "name": "ARO 飞书同步接入教程",
+        "description": "如何创建飞书企业自建应用、开通权限、发布版本，并把 ARO 连接到飞书多维表格。",
+        "step": [
+          { "@type": "HowToStep", "name": "创建飞书企业自建应用" },
+          { "@type": "HowToStep", "name": "复制 App ID 与 App Secret" },
+          { "@type": "HowToStep", "name": "开通多维表格相关权限并发布版本" },
+          { "@type": "HowToStep", "name": "在 ARO 中填写应用信息" },
+          { "@type": "HowToStep", "name": "自动创建飞书表格或手动绑定已有表格" },
+          { "@type": "HowToStep", "name": "启用同步并验证订单写入" }
+        ]
+      }
+    </script>
+    <link rel="icon" type="image/png" href="../assets/logo-aro-icon.png" />
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body>
+    <header class="site-header site-header--solid">
+      <div class="header-shell">
+        <a class="brand" href="../" aria-label="ARO 仓序">
+          <img src="../assets/logo-aro-icon.png" alt="ARO 仓序图标" />
+          <span class="brand__text">
+            <strong>ARO</strong>
+            <span>仓序</span>
+          </span>
+        </a>
+
+        <nav class="site-nav" aria-label="站点导航">
+          <a href="../">首页</a>
+          <a href="../feishu-order-sync/">飞书同步</a>
+          <a href="../faq/">常见问题</a>
+          <a href="../#download">下载</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="page-main">
+      <section class="page-hero">
+        <div class="page-hero__shell">
+          <div class="page-hero__copy">
+            <p class="eyebrow eyebrow--dark">飞书接入教程</p>
+            <h1>把 ARO 连到飞书，不难，关键是应用类型、权限和发布版本别漏掉。</h1>
+            <p class="page-hero__lead">
+              这页是给实际操作的人看的。你只要按顺序完成创建应用、开权限、发布版本、回到 ARO 填写信息这几步，就能把订单同步到飞书多维表格里。
+            </p>
+            <div class="page-actions">
+              <a class="btn btn--dark" href="../#download">先下载 ARO</a>
+              <a class="btn btn--ghost" href="https://open.feishu.cn/" target="_blank" rel="noreferrer">打开飞书开放平台</a>
+            </div>
+            <div class="page-pills">
+              <span>企业自建应用</span>
+              <span>多维表格</span>
+              <span>App ID</span>
+              <span>App Secret</span>
+              <span>App Token</span>
+              <span>Table ID</span>
+            </div>
+          </div>
+
+          <div class="page-hero__visual">
+            <img src="../assets/feature-sync.png" alt="ARO 飞书同步功能界面" />
+          </div>
+        </div>
+      </section>
+
+      <section class="content-band">
+        <div class="content-shell">
+          <div class="content-intro">
+            <p class="eyebrow eyebrow--dark">开始前先确认</p>
+            <h2>先把这三件事记住，后面会省很多时间。</h2>
+            <p>
+              ARO 当前飞书同步使用的是飞书开放平台自建应用和多维表格接口。为了让接口能拿到 <code>tenant_access_token</code> 并正常创建、补字段、写记录，应用类型和权限范围要配对。
+            </p>
+          </div>
+
+          <div class="content-grid">
+            <article class="content-card">
+              <h3>1. 只能用飞书企业自建应用</h3>
+              <p>
+                现在这套接入走的是企业内部应用接口，不是上架市场应用。创建应用时，直接选飞书开放平台里的企业自建应用最稳。
+              </p>
+            </article>
+
+            <article class="content-card">
+              <h3>2. 最省事的方法是自动建表</h3>
+              <p>
+                只填 App ID 和 App Secret，然后在 ARO 里点“自动创建飞书表”，系统会帮你创建多维表格、默认数据表，并自动回填 App Token 和 Table ID。
+              </p>
+            </article>
+
+            <article class="content-card">
+              <h3>3. 改完权限后记得发布版本</h3>
+              <p>
+                只是在权限管理里勾选还不够。飞书自建应用通常还要发布版本，组织内应用能力才会真正生效。
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="content-band content-band--alt">
+        <div class="content-shell">
+          <div class="content-intro">
+            <p class="eyebrow eyebrow--dark">操作步骤</p>
+            <h2>按下面 6 步做，一次接好。</h2>
+            <p>
+              如果你不想手动找 <code>App Token</code> 和 <code>Table ID</code>，看到第 4 步就可以先回到 ARO 里点自动建表。
+            </p>
+          </div>
+
+          <div class="faq-grid">
+            <article class="faq-item">
+              <h3>第 1 步：创建飞书企业自建应用</h3>
+              <p>
+                打开飞书开放平台，创建一个企业自建应用。应用名称可以直接用 “ARO 订单同步” 或你自己的团队名称，图标随意，后面都可以改。
+              </p>
+            </article>
+
+            <article class="faq-item">
+              <h3>第 2 步：复制 App ID 和 App Secret</h3>
+              <p>
+                应用创建好后，在凭证或基础信息页把 <code>App ID</code> 和 <code>App Secret</code> 记下来。ARO 软件里会用到这两个值。
+              </p>
+            </article>
+
+            <article class="faq-item">
+              <h3>第 3 步：开通多维表格权限</h3>
+              <p>
+                到应用的权限管理里，开通下面这组和多维表格有关的权限。为了避免权限名改版带来的差异，ARO 下面同时写了 scope 名和用途。
+              </p>
+            </article>
+
+            <article class="faq-item">
+              <h3>第 4 步：发布应用版本</h3>
+              <p>
+                权限勾选完成后，点击发布版本，让新权限在企业内生效。如果这一步没做，ARO 里通常会表现成自动建表失败、拿不到 Token 或写记录失败。
+              </p>
+            </article>
+
+            <article class="faq-item">
+              <h3>第 5 步：回到 ARO 填应用信息</h3>
+              <p>
+                打开 ARO 首页里的飞书同步页，填入 <code>App ID</code> 和 <code>App Secret</code>。如果想最省事，接下来直接点“自动创建飞书表”。
+              </p>
+            </article>
+
+            <article class="faq-item">
+              <h3>第 6 步：启用同步并验证</h3>
+              <p>
+                看到 <code>App Token</code>、<code>Table ID</code> 和飞书表格地址自动回填后，确认“启用飞书订单同步”已勾选。然后新增一笔测试订单，看飞书里是否出现记录。
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="content-band">
+        <div class="content-shell split-layout">
+          <div class="text-stack">
+            <p class="eyebrow eyebrow--dark">权限清单</p>
+            <h2>这套功能实际会用到哪些权限？</h2>
+            <p>
+              ARO 当前会做这些动作：创建多维表格、读取字段、补齐字段、更新字段名、新增订单记录、更新已有订单记录。为了让这些动作都能跑通，推荐至少开通下面这些权限。
+            </p>
+            <p>
+              如果你在飞书后台看到的是中文权限组，而不是细粒度 scope，就优先勾选和“多维表格创建、字段管理、记录读写”对应的能力。
+            </p>
+          </div>
+
+          <aside class="note-panel">
+            <h3>推荐开通的权限</h3>
+            <ul class="panel-list">
+              <li><code>base:app:create</code>：允许应用创建新的多维表格</li>
+              <li><code>base:field:read</code>：读取字段列表，检查缺哪些列</li>
+              <li><code>base:field:create</code>：自动补齐缺失字段</li>
+              <li><code>base:field:update</code>：把主标题字段统一成“订单标题”</li>
+              <li><code>base:record:create</code>：新增订单记录</li>
+              <li><code>base:record:update</code>：发货、归还、转寄时更新原记录</li>
+            </ul>
+          </aside>
+        </div>
+      </section>
+
+      <section class="content-band content-band--alt">
+        <div class="content-shell split-layout">
+          <div class="text-stack">
+            <p class="eyebrow eyebrow--dark">软件里怎么填</p>
+            <h2>飞书同步页每个输入框对应什么？</h2>
+            <p>
+              软件里的字段不是随便起的，和飞书开放平台、多维表格对象是一一对应的。下面这张对照表可以直接照着填。
+            </p>
+          </div>
+
+          <aside class="note-panel">
+            <h3>填写对照</h3>
+            <ul class="panel-list">
+              <li><strong>App ID</strong>：飞书应用的客户端 ID，常见前缀是 <code>cli_</code></li>
+              <li><strong>App Secret</strong>：飞书应用密钥</li>
+              <li><strong>App Token</strong>：多维表格应用 ID，自动建表后会自动回填</li>
+              <li><strong>Table ID</strong>：要写入的数据表 ID，自动建表后会自动回填</li>
+              <li><strong>主标题字段</strong>：默认保持 <code>订单标题</code> 就行</li>
+              <li><strong>飞书表格地址</strong>：多维表格完整链接，自动建表后也会自动回填</li>
+            </ul>
+          </aside>
+        </div>
+      </section>
+
+      <section class="content-band">
+        <div class="content-shell">
+          <div class="content-intro">
+            <p class="eyebrow eyebrow--dark">自动建表 vs 手动绑定</p>
+            <h2>两种接法都支持，但我更建议你先用自动建表。</h2>
+            <p>
+              自动建表最省心，也最不容易碰到旧表权限不够、字段缺失、主标题不一致的问题。手动绑定适合你已经有现成表格，且很明确知道自己要接哪一张。
+            </p>
+          </div>
+
+          <div class="content-grid">
+            <article class="content-card">
+              <h3>自动建表</h3>
+              <p>
+                只要先填 <code>App ID</code> 和 <code>App Secret</code>，点“自动创建飞书表”，ARO 会创建一张新的多维表格，并自动生成默认数据表和字段。
+              </p>
+            </article>
+
+            <article class="content-card">
+              <h3>手动绑定已有表格</h3>
+              <p>
+                如果你坚持接已有表格，需要手动填 <code>App Token</code> 和 <code>Table ID</code>。一般多维表格链接里会出现 <code>/base/&lt;app_token&gt;</code>，表格参数里会带 <code>table=&lt;table_id&gt;</code>。
+              </p>
+            </article>
+
+            <article class="content-card">
+              <h3>已有表格的额外注意事项</h3>
+              <p>
+                ARO 会检查字段结构，并在必要时补字段、改主标题字段名。如果你不希望动现有表结构，建议新建一张专门给 ARO 同步使用的表，而不是直接接正在手工维护的旧表。
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="content-band content-band--alt">
+        <div class="content-shell">
+          <div class="content-intro">
+            <p class="eyebrow eyebrow--dark">会同步什么</p>
+            <h2>同步到飞书的字段，和软件里看到的是同一套业务数据。</h2>
+            <p>
+              当前同步的是订单信息和设备相关信息，不会把截图图片上传到服务器，也不会把图片推到飞书。
+            </p>
+          </div>
+
+          <div class="guide-grid guide-grid--compact">
+            <a class="guide-card" href="../feishu-order-sync/">
+              <div class="guide-card__eyebrow">功能介绍</div>
+              <h3>飞书同步是什么</h3>
+              <p>先看飞书同步适合哪些团队、适合什么使用方式。</p>
+              <span>查看介绍</span>
+            </a>
+
+            <div class="guide-card">
+              <div class="guide-card__eyebrow">同步字段</div>
+              <h3>默认会写入这些列</h3>
+              <p>订单 ID、客户姓名、客户电话、客户地址、平台、客服、备注、设备型号、设备序列号、快递单号、发货日、起租日、到期日、发货时间、归还日、订单状态、转寄信息、创建账号、飞书同步时间。</p>
+              <span>新增与变更都会更新原记录</span>
+            </div>
+
+            <div class="guide-card">
+              <div class="guide-card__eyebrow">触发时机</div>
+              <h3>这些动作会触发同步</h3>
+              <p>手动新增订单、Excel 导入后推云端、订单发货、订单归还、订单转寄、企业协作下的订单状态变化，都会继续同步到飞书。</p>
+              <span>只同步业务数据，不传图片</span>
+            </div>
+
+            <div class="guide-card">
+              <div class="guide-card__eyebrow">账号范围</div>
+              <h3>每个账号各自绑定</h3>
+              <p>当前是 Plus 用户按账号独立配置。你切换到另一个 ARO 账号后，需要重新在那个账号下完成飞书连接。</p>
+              <span>避免不同账号互相覆盖表格</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="content-band">
+        <div class="content-shell">
+          <div class="content-intro">
+            <p class="eyebrow eyebrow--dark">常见报错</p>
+            <h2>大部分接不上，其实都卡在这几类问题里。</h2>
+            <p>
+              如果你已经照着填了还失败，优先对照下面这张排查表，不用一上来就怀疑软件本身。
+            </p>
+          </div>
+
+          <div class="faq-grid">
+            <article class="faq-item">
+              <h3>获取 tenant_access_token 失败</h3>
+              <p>
+                通常是 <code>App ID</code>、<code>App Secret</code> 填错，或者创建的不是企业自建应用。先回飞书开放平台核对凭证。
+              </p>
+            </article>
+
+            <article class="faq-item">
+              <h3>自动建表失败</h3>
+              <p>
+                大多是没开 <code>base:app:create</code>，或者开了权限但没发布版本。把权限和发布步骤重新检查一遍。
+              </p>
+            </article>
+
+            <article class="faq-item">
+              <h3>飞书同步尚未完成配置</h3>
+              <p>
+                说明你虽然勾选了启用，但 <code>App Token</code> 或 <code>Table ID</code> 还是空的。最简单的做法是回软件里点一次“自动创建飞书表”。
+              </p>
+            </article>
+
+            <article class="faq-item">
+              <h3>已有表格写不进去</h3>
+              <p>
+                说明应用对这张已有多维表格没有访问权限，或者表格不在应用可访问范围内。已有表格手动绑定时，这类问题会比自动建表更常见。
+              </p>
+            </article>
+
+            <article class="faq-item">
+              <h3>字段名和原表不一样</h3>
+              <p>
+                ARO 会把主标题字段统一成 <code>订单标题</code>，并补齐缺失字段。如果你不希望表结构被调整，建议单独新建一张同步表。
+              </p>
+            </article>
+
+            <article class="faq-item">
+              <h3>切换账号后飞书配置没了</h3>
+              <p>
+                飞书配置是跟 ARO 账号绑定的，不是跟当前电脑绑定。你换到另一个账号登录后，看不到原来那个账号的飞书配置是正常现象。
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="content-band content-band--alt">
+        <div class="content-shell split-layout">
+          <div class="text-stack">
+            <p class="eyebrow eyebrow--dark">官方参考</p>
+            <h2>如果你想对照飞书官方文档，可以从这几类入口看。</h2>
+            <p>
+              ARO 这套飞书接入，核心就是应用创建、权限列表、发布版本、获取 <code>tenant_access_token</code> 和多维表格 API。下面这些入口是最相关的。
+            </p>
+          </div>
+
+          <aside class="note-panel">
+            <h3>推荐参考</h3>
+            <ul class="panel-list">
+              <li><a href="https://open.feishu.cn/" target="_blank" rel="noreferrer">飞书开放平台首页</a></li>
+              <li><a href="https://open.feishu.cn/document/ukTMukTMukTM/uYTM5UjL2ETO14iNxkTN/scope-list?lang=zh-CN" target="_blank" rel="noreferrer">权限列表（Scope List）</a></li>
+              <li><a href="https://open.feishu.cn/document/server-docs/authentication-management/access-token/tenant_access_token_internal" target="_blank" rel="noreferrer">获取 tenant_access_token</a></li>
+              <li><a href="https://open.feishu.cn/document/server-docs/docs/bitable-v1/app/create" target="_blank" rel="noreferrer">创建多维表格</a></li>
+            </ul>
+          </aside>
+        </div>
+      </section>
+
+      <section class="cta-band">
+        <div class="cta-shell">
+          <div class="cta-panel">
+            <div class="cta-copy">
+              <p class="eyebrow">开始连接</p>
+              <h2>如果你已经把应用建好，下一步就是回到 ARO 里填进去。</h2>
+              <p>
+                建议先用自动建表跑通第一遍，确认能写入记录后，再考虑要不要手动绑定现有表格。
+              </p>
+            </div>
+
+            <div class="cta-actions">
+              <a class="btn btn--primary" href="../#download">下载最新版本</a>
+              <a class="btn btn--secondary" href="../feishu-order-sync/">返回飞书同步介绍页</a>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-shell">
+        <div>
+          <strong>ARO</strong>
+          <span>仓序</span>
+        </div>
+        <nav class="footer-nav" aria-label="底部导航">
+          <a href="../">首页</a>
+          <a href="../feishu-order-sync/">飞书同步介绍</a>
+          <a href="../feishu-setup/">飞书接入教程</a>
+          <a href="../faq/">常见问题</a>
+        </nav>
+      </div>
+    </footer>
+
+    <script type="module" src="../app.js"></script>
+  </body>
+</html>
