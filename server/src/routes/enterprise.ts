@@ -11,6 +11,10 @@ function generateInviteCode(): string {
   return randomBytes(4).toString('hex').toUpperCase()
 }
 
+function generateEntityId(prefix: string): string {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+}
+
 function getTodayStr(): string {
   const date = new Date()
   const year = date.getFullYear()
@@ -161,7 +165,7 @@ async function findEnterpriseDeviceBySerial(requesterUserId: number, serialNumbe
   const result = await query(
     `SELECT *
      FROM devices
-     WHERE user_id = $1 AND serial_number = $2
+     WHERE user_id = $1 AND LOWER(serial_number) = LOWER($2)
      ORDER BY CASE WHEN status = 'idle' THEN 0 ELSE 1 END, synced_at DESC
      LIMIT 1`,
     [context.ownerId, serialNumber]
@@ -887,6 +891,95 @@ router.post('/orders/:orderId/dispatch', authMiddleware, requireTier('team', 'pr
   } catch (err: any) {
     console.error('[enterprise] dispatch error:', err.message)
     res.status(500).json({ error: '企业订单发货失败' })
+  }
+})
+
+router.post('/orders/:orderId/dispatch-with-new-device', authMiddleware, requireTier('team', 'pro'), async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user
+    const { serialNumber, trackingNumber } = req.body
+    const order = await findEnterpriseOrder(user.userId, req.params.orderId)
+
+    if (!order) {
+      res.status(404).json({ error: '未找到企业订单' })
+      return
+    }
+    if (order.status !== 'pending') {
+      res.status(400).json({ error: '该订单已经不是待发货状态' })
+      return
+    }
+
+    const normalizedSerialNumber = String(serialNumber || '').trim()
+    const normalizedTrackingNumber = String(trackingNumber || '').trim()
+    if (!normalizedSerialNumber || !normalizedTrackingNumber) {
+      res.status(400).json({ error: '请填写设备序列号和快递单号' })
+      return
+    }
+
+    const existingDevice = await findEnterpriseDeviceBySerial(user.userId, normalizedSerialNumber)
+    if (existingDevice) {
+      if (existingDevice.status === 'idle') {
+        res.status(400).json({ error: '该序列号已经在库存中，请直接确认发货' })
+        return
+      }
+
+      res.status(400).json({ error: '该序列号设备已存在且当前不可用' })
+      return
+    }
+
+    const context = await getEnterpriseContext(user.userId)
+    if (!context) {
+      res.status(404).json({ error: '你未加入任何企业' })
+      return
+    }
+
+    const dispatchDate = getTodayStr()
+
+    await query(
+      `INSERT INTO devices (id, user_id, serial_number, device_id, status, current_order_id, created_at)
+       VALUES ($1, $2, $3, $4, 'renting', $5, $6)`,
+      [
+        generateEntityId('dev'),
+        context.ownerId,
+        normalizedSerialNumber,
+        order.device_id || '标准',
+        order.id,
+        dispatchDate
+      ]
+    )
+
+    const orderUpdateResult = await query(
+      `UPDATE orders
+       SET serial_number = $1,
+           tracking_number = $2,
+           dispatch_date = $3,
+           status = 'dispatched',
+           feishu_sync_status = 'pending',
+           feishu_sync_error = '',
+           synced_at = NOW()
+       WHERE id = $4
+       RETURNING *`,
+      [normalizedSerialNumber, normalizedTrackingNumber, dispatchDate, order.id]
+    )
+
+    let updatedOrder = {
+      ...orderUpdateResult.rows[0],
+      owner_email: order.owner_email,
+      subscription_tier: order.subscription_tier,
+      subscription_expires: order.subscription_expires,
+      owner_created_at: order.owner_created_at
+    }
+
+    updatedOrder = await syncEnterpriseOrderFeishu(updatedOrder)
+
+    res.json({
+      success: true,
+      message: '企业订单已入库并发货',
+      order: rowToOrder(updatedOrder)
+    })
+  } catch (err: any) {
+    console.error('[enterprise] dispatch-with-new-device error:', err.message)
+    res.status(500).json({ error: '企业订单入库并发货失败' })
   }
 })
 

@@ -168,6 +168,18 @@ export function startServer(): void {
     }
   })
 
+  app.post('/api/orders/dispatch-with-new-device', (req, res) => {
+    try {
+      const { orderId, serialNumber, trackingNumber } = req.body
+      if (!orderId || !serialNumber || !trackingNumber) {
+        return res.status(400).json({ error: '缺少必要参数' })
+      }
+      res.json(deviceStore.dispatchOrderWithNewDevice(orderId, serialNumber, trackingNumber))
+    } catch (err: any) {
+      res.status(500).json({ error: err.message })
+    }
+  })
+
   app.post('/api/orders/return', (req, res) => {
     try {
       const { orderId } = req.body

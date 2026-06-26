@@ -8,7 +8,7 @@ import {
   type WorkspaceOrder
 } from '../services/enterprise-workspace'
 import { syncOrdersAfterMutation } from '../services/order-change-sync'
-import { buildElectronSyncOptions, pullNow } from '../services/sync-service'
+import { buildElectronSyncOptions, CLOUD_SYNC_INTERVAL_MINUTES, pullNow } from '../services/sync-service'
 
 const PAGE_SIZE = 10
 
@@ -212,7 +212,7 @@ export function ShippingInfo(): JSX.Element {
           color: '#4f46e5',
           lineHeight: 1.7
         }}>
-          当前为企业视图，正在查看「{enterpriseName}」的全部发货记录。企业成员的改动会在 30 秒内自动刷新到这里。
+          当前为企业视图，正在查看「{enterpriseName}」的全部发货记录。企业成员的改动默认每 {CLOUD_SYNC_INTERVAL_MINUTES} 分钟自动刷新一次，也可以点击顶部“手动同步”立即查看最新数据。
         </div>
       )}
 

@@ -114,6 +114,49 @@ export function addDevice(serialNumber: string, deviceId: string): Device {
   return device
 }
 
+export function dispatchOrderWithNewDevice(orderId: string, serialNumber: string, trackingNumber: string): Order {
+  const orders = loadOrders()
+  const devices = loadDevices()
+
+  const order = orders.find(o => o.id === orderId)
+  if (!order) throw new Error('订单不存在')
+  if (order.status !== 'pending') throw new Error('该订单已经不是待发货状态')
+
+  const normalizedSerialNumber = serialNumber.trim()
+  const normalizedTrackingNumber = trackingNumber.trim()
+  if (!normalizedSerialNumber || !normalizedTrackingNumber) {
+    throw new Error('请填写设备序列号和快递单号')
+  }
+
+  const existingDevice = devices.find(d => d.serialNumber.trim().toLowerCase() === normalizedSerialNumber.toLowerCase())
+  if (existingDevice) {
+    if (existingDevice.status === 'idle') {
+      throw new Error('该序列号已经在库存中，请直接确认发货')
+    }
+    throw new Error('该序列号设备已存在且当前不可用')
+  }
+
+  const device: Device = {
+    id: generateId('dev'),
+    serialNumber: normalizedSerialNumber,
+    deviceId: order.deviceId || '标准',
+    status: 'renting',
+    currentOrderId: orderId,
+    createdAt: getTodayStr()
+  }
+  devices.push(device)
+  saveDevices(devices)
+
+  order.serialNumber = normalizedSerialNumber
+  order.trackingNumber = normalizedTrackingNumber
+  order.dispatchDate = getTodayStr()
+  order.status = 'dispatched'
+  markOrderForFeishuSync(order)
+  saveOrders(orders)
+
+  return order
+}
+
 export function deleteDevice(deviceId: string): boolean {
   const devices = loadDevices()
   const device = devices.find(d => d.id === deviceId)

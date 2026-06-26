@@ -5,6 +5,7 @@ import { syncOrdersAfterMutation } from '../services/order-change-sync'
 import {
   deleteEnterpriseOrder,
   dispatchEnterpriseOrder,
+  dispatchEnterpriseOrderWithNewDevice,
   getFriendList,
   getUser,
   returnEnterpriseOrder,
@@ -17,7 +18,7 @@ import {
   type WorkspaceDevice,
   type WorkspaceOrder
 } from '../services/enterprise-workspace'
-import { buildElectronSyncOptions, pullNow } from '../services/sync-service'
+import { buildElectronSyncOptions, CLOUD_SYNC_INTERVAL_MINUTES, pullNow } from '../services/sync-service'
 
 type DispatchTarget = { orderId: string; deviceId: string } | null
 type OrderFilter = HomeOrderFilter
@@ -56,6 +57,7 @@ interface OrderPanelProps {
 
 export function OrderPanel({ initialFilter = 'pending', initialDate = '' }: OrderPanelProps): JSX.Element {
   const [allOrders, setAllOrders] = useState<WorkspaceOrder[]>([])
+  const [allDevices, setAllDevices] = useState<WorkspaceDevice[]>([])
   const [idleDevices, setIdleDevices] = useState<WorkspaceDevice[]>([])
   const [filter, setFilter] = useState<OrderFilter>(initialFilter)
   const [dispatchTarget, setDispatchTarget] = useState<DispatchTarget>(null)
@@ -104,14 +106,14 @@ export function OrderPanel({ initialFilter = 'pending', initialDate = '' }: Orde
   async function loadData(useEnterpriseMode = enterpriseMode) {
     const [orders, devices] = useEnterpriseMode
       ? await Promise.all([loadEnterpriseOrders(), loadEnterpriseDevices()])
-      : await Promise.all([window.electronAPI.getAllOrders(), window.electronAPI.getDevices('idle')])
+      : await Promise.all([window.electronAPI.getAllOrders(), window.electronAPI.getDevices()])
 
     const nextOrders = orders as WorkspaceOrder[]
-    const nextIdleDevices = useEnterpriseMode
-      ? (devices as WorkspaceDevice[]).filter(device => device.status === 'idle')
-      : devices as WorkspaceDevice[]
+    const nextAllDevices = devices as WorkspaceDevice[]
+    const nextIdleDevices = nextAllDevices.filter(device => device.status === 'idle')
 
     setAllOrders(nextOrders)
+    setAllDevices(nextAllDevices)
     setIdleDevices(nextIdleDevices)
     setSelectedOrderIds(prev => prev.filter(id => nextOrders.some(order => order.id === id)))
   }
@@ -239,12 +241,12 @@ export function OrderPanel({ initialFilter = 'pending', initialDate = '' }: Orde
   }
 
   async function handleDispatch() {
-    if (!dispatchTarget || !serialNumber.trim() || !trackingNumber.trim()) return
+    if (!dispatchTarget || !canDispatchExistingDevice || !resolvedDispatchSerialNumber || !trackingNumber.trim()) return
     setDispatching(true)
     try {
       const order = enterpriseMode
-        ? (await dispatchEnterpriseOrder(dispatchTarget.orderId, serialNumber.trim(), trackingNumber.trim())).order
-        : await window.electronAPI.dispatchOrder(dispatchTarget.orderId, serialNumber.trim(), trackingNumber.trim())
+        ? (await dispatchEnterpriseOrder(dispatchTarget.orderId, resolvedDispatchSerialNumber, trackingNumber.trim())).order
+        : await window.electronAPI.dispatchOrder(dispatchTarget.orderId, resolvedDispatchSerialNumber, trackingNumber.trim())
 
       if (enterpriseMode) {
         await refreshAfterEnterpriseMutation()
@@ -255,7 +257,7 @@ export function OrderPanel({ initialFilter = 'pending', initialDate = '' }: Orde
       setDispatchOk({
         orderId: order.id,
         name: order.customerName,
-        serial: serialNumber.trim(),
+        serial: resolvedDispatchSerialNumber,
         tracking: trackingNumber.trim(),
         device: order.deviceId
       })
@@ -263,6 +265,37 @@ export function OrderPanel({ initialFilter = 'pending', initialDate = '' }: Orde
       setTimeout(() => setDispatchOk(null), 10000)
     } catch (err: any) {
       alert(err.message || '发货失败')
+    } finally {
+      setDispatching(false)
+    }
+  }
+
+  async function handleAddAndDispatch() {
+    if (!dispatchTarget || !canAddAndDispatch || !normalizedSerialNumber || !trackingNumber.trim()) return
+    setDispatching(true)
+    try {
+      const order = enterpriseMode
+        ? (await dispatchEnterpriseOrderWithNewDevice(dispatchTarget.orderId, normalizedSerialNumber, trackingNumber.trim())).order
+        : await window.electronAPI.dispatchOrderWithNewDevice(dispatchTarget.orderId, normalizedSerialNumber, trackingNumber.trim())
+
+      if (enterpriseMode) {
+        await refreshAfterEnterpriseMutation()
+      } else {
+        await syncOrdersAfterMutation()
+      }
+
+      setDispatchTarget(null)
+      setDispatchOk({
+        orderId: order.id,
+        name: order.customerName,
+        serial: normalizedSerialNumber,
+        tracking: trackingNumber.trim(),
+        device: order.deviceId
+      })
+      await loadData(enterpriseMode)
+      setTimeout(() => setDispatchOk(null), 10000)
+    } catch (err: any) {
+      alert(err.message || '入库并发货失败')
     } finally {
       setDispatching(false)
     }
@@ -353,6 +386,23 @@ export function OrderPanel({ initialFilter = 'pending', initialDate = '' }: Orde
     }
     return list
   }, [dispatchTarget, idleDevices, serialNumber])
+
+  const activeDispatchOrder = useMemo(() => (
+    dispatchTarget ? allOrders.find(order => order.id === dispatchTarget.orderId) || null : null
+  ), [allOrders, dispatchTarget])
+
+  const normalizedSerialNumber = serialNumber.trim()
+
+  const matchedDevice = useMemo(() => {
+    if (!normalizedSerialNumber) return null
+    const keyword = normalizedSerialNumber.toLowerCase()
+    return allDevices.find(device => device.serialNumber.trim().toLowerCase() === keyword) || null
+  }, [allDevices, normalizedSerialNumber])
+
+  const resolvedDispatchSerialNumber = matchedDevice?.serialNumber || normalizedSerialNumber
+  const canDispatchExistingDevice = !!matchedDevice && matchedDevice.status === 'idle' && !!trackingNumber.trim()
+  const canAddAndDispatch = !!activeDispatchOrder && !!normalizedSerialNumber && !matchedDevice && !!trackingNumber.trim()
+  const serialExistsButUnavailable = !!matchedDevice && matchedDevice.status !== 'idle'
 
   const pendingOrdersOnPage = useMemo(() => (
     orders.filter(order => order.status === 'pending')
@@ -481,7 +531,7 @@ export function OrderPanel({ initialFilter = 'pending', initialDate = '' }: Orde
           color: '#4f46e5',
           lineHeight: 1.7
         }}>
-          当前为企业视图，正在查看「{enterpriseName}」的全部订单。企业成员的改动会在 30 秒内自动刷新到这里。
+          当前为企业视图，正在查看「{enterpriseName}」的全部订单。企业成员的改动默认每 {CLOUD_SYNC_INTERVAL_MINUTES} 分钟自动刷新一次，也可以点击顶部“手动同步”立即查看最新数据。
         </div>
       )}
       {/* Top bar: add order + today shortcut */}
@@ -799,6 +849,36 @@ export function OrderPanel({ initialFilter = 'pending', initialDate = '' }: Orde
               </div>
             )}
 
+            {serialExistsButUnavailable && matchedDevice && (
+              <div style={{
+                marginTop: '10px',
+                padding: '10px 12px',
+                borderRadius: '10px',
+                background: '#fff4e5',
+                border: '1px solid #ffd9a8',
+                fontSize: '12px',
+                color: '#b26a00',
+                lineHeight: 1.7
+              }}>
+                序列号「{matchedDevice.serialNumber}」已经存在，但当前状态是「{matchedDevice.status === 'renting' ? '租赁中' : matchedDevice.status}」，暂时不能直接发货。
+              </div>
+            )}
+
+            {!matchedDevice && normalizedSerialNumber && activeDispatchOrder && (
+              <div style={{
+                marginTop: '10px',
+                padding: '10px 12px',
+                borderRadius: '10px',
+                background: '#eef7ff',
+                border: '1px solid #cfe3ff',
+                fontSize: '12px',
+                color: '#1d4ed8',
+                lineHeight: 1.7
+              }}>
+                库存中没有序列号「{normalizedSerialNumber}」，可以按当前订单型号「{activeDispatchOrder.deviceId || '标准'}」直接入库并发货。
+              </div>
+            )}
+
             <div className="form-group">
               <label className="form-label">快递单号</label>
               <input className="form-input" style={{ width: '100%' }} placeholder="输入快递单号" value={trackingNumber} onChange={e => setTrackingNumber(e.target.value)} />
@@ -806,10 +886,19 @@ export function OrderPanel({ initialFilter = 'pending', initialDate = '' }: Orde
 
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '16px' }}>
               <button className="settings-panel__btn settings-panel__btn--secondary" onClick={() => setDispatchTarget(null)}>取消</button>
+              {canAddAndDispatch && (
+                <button
+                  className="settings-panel__btn settings-panel__btn--secondary"
+                  onClick={handleAddAndDispatch}
+                  disabled={dispatching}
+                >
+                  {dispatching ? '处理中...' : '入库并发货'}
+                </button>
+              )}
               <button
                 className="settings-panel__btn settings-panel__btn--primary"
                 onClick={handleDispatch}
-                disabled={dispatching || !serialNumber.trim() || !trackingNumber.trim()}
+                disabled={dispatching || !canDispatchExistingDevice}
               >
                 {dispatching ? '发货中...' : '确认发货'}
               </button>

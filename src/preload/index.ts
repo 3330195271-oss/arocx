@@ -40,6 +40,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('get-all-orders'),
   dispatchOrder: (orderId: string, serialNumber: string, trackingNumber: string): Promise<Order> =>
     ipcRenderer.invoke('dispatch-order', orderId, serialNumber, trackingNumber),
+  dispatchOrderWithNewDevice: (orderId: string, serialNumber: string, trackingNumber: string): Promise<Order> =>
+    ipcRenderer.invoke('dispatch-order-with-new-device', orderId, serialNumber, trackingNumber),
   returnOrder: (orderId: string): Promise<Order> =>
     ipcRenderer.invoke('return-order', orderId),
   deleteOrder: (orderId: string): Promise<boolean> =>

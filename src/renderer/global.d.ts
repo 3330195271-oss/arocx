@@ -31,6 +31,7 @@ declare global {
       getTodayOrders: () => Promise<Order[]>
       getAllOrders: () => Promise<Order[]>
       dispatchOrder: (orderId: string, serialNumber: string, trackingNumber: string) => Promise<Order>
+      dispatchOrderWithNewDevice: (orderId: string, serialNumber: string, trackingNumber: string) => Promise<Order>
       returnOrder: (orderId: string) => Promise<Order>
       deleteOrder: (orderId: string) => Promise<boolean>
       forwardOrder: (orderId: string, targetOrderId: string, trackingNumber: string) => Promise<Order>

@@ -128,6 +128,21 @@ export function registerIpcHandlers(): void {
     return order
   })
 
+  ipcMain.handle('dispatch-order-with-new-device', async (_e, orderId: string, serialNumber: string, trackingNumber: string): Promise<Order> => {
+    const order = deviceStore.dispatchOrderWithNewDevice(orderId, serialNumber, trackingNumber)
+    sendDispatchNotification({
+      customerName: order.customerName,
+      customerPhone: order.customerPhone,
+      deviceModel: order.deviceId,
+      serialNumber: order.serialNumber,
+      trackingNumber: order.trackingNumber,
+      csRep: (order as any).csRep,
+      platform: (order as any).platform,
+      address: order.customerAddress
+    }).catch(() => {})
+    return order
+  })
+
   ipcMain.handle('return-order', async (_e, orderId: string): Promise<Order> => {
     return deviceStore.returnOrder(orderId)
   })

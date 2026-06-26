@@ -17,7 +17,7 @@ import { FriendsPage } from './components/FriendsPage'
 import { EnterprisePage } from './components/EnterprisePage'
 import { FeishuSyncPage } from './components/FeishuSyncPage'
 import { getLatestAppVersion, isLoggedIn, verifyToken, getUser, logout as apiLogout } from './services/api-client'
-import { startCloudSync, stopCloudSync, syncNow, pullNow, buildElectronSyncOptions } from './services/sync-service'
+import { startCloudSync, stopCloudSync, syncNow, pullNow, buildElectronSyncOptions, CLOUD_SYNC_INTERVAL_MINUTES } from './services/sync-service'
 import type { TabKey } from './components/NavTabs'
 import type { HomeNavigationTarget } from './types/home-navigation'
 import type { AppVersionInfo, ClientPlatformInfo } from './services/api-client'
@@ -52,6 +52,7 @@ export default function App(): JSX.Element {
   const [lastRefresh, setLastRefresh] = useState<string>('')
   const [syncNotice, setSyncNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [manualCloudSyncing, setManualCloudSyncing] = useState(false)
   const [autoSync, setAutoSync] = useState(false)
   const [syncCountdown, setSyncCountdown] = useState(SYNC_INTERVAL_SEC)
   const [syncing, setSyncing] = useState(false)
@@ -79,6 +80,13 @@ export default function App(): JSX.Element {
 
   useEffect(() => {
     window.electronAPI.getSavePath().then(setSavePath)
+  }, [])
+
+  const handleCloudDataApplied = useCallback(() => {
+    setRefreshKey(k => k + 1)
+    if (currentPageRef.current === 'forwarding') {
+      loadForwardingRef.current().catch(() => {})
+    }
   }, [])
 
   const checkForUpdates = useCallback(async () => {
@@ -146,12 +154,7 @@ export default function App(): JSX.Element {
     await window.electronAPI.setActiveStorageScope(buildStorageScope(user))
 
     try {
-      await pullNow(buildElectronSyncOptions(() => {
-        setRefreshKey(k => k + 1)
-        if (currentPageRef.current === 'forwarding') {
-          loadForwardingRef.current().catch(() => {})
-        }
-      }))
+      await pullNow(buildElectronSyncOptions(handleCloudDataApplied))
       setSyncNotice(null)
     } catch (error: any) {
       setSyncNotice({
@@ -159,7 +162,7 @@ export default function App(): JSX.Element {
         text: `已登录 ${user.email}，但云端同步失败：${error?.message || '未知错误'}`
       })
     }
-  }, [])
+  }, [handleCloudDataApplied])
 
   useEffect(() => {
     const handleUpdateProgress = (event: Event) => {
@@ -246,6 +249,26 @@ export default function App(): JSX.Element {
     setAuthNotice(null)
   }
 
+  const handleManualCloudSync = useCallback(async () => {
+    if (!authenticated) return
+    setManualCloudSyncing(true)
+    setSyncNotice(null)
+    try {
+      await pullNow(buildElectronSyncOptions(handleCloudDataApplied))
+      setSyncNotice({
+        type: 'success',
+        text: `已从云端拉取最新订单和设备数据，自动刷新间隔为每 ${CLOUD_SYNC_INTERVAL_MINUTES} 分钟一次。`
+      })
+    } catch (error: any) {
+      setSyncNotice({
+        type: 'error',
+        text: `手动同步失败：${error?.message || '未知错误'}`
+      })
+    } finally {
+      setManualCloudSyncing(false)
+    }
+  }, [authenticated, handleCloudDataApplied])
+
   const handleFetch = useCallback(async () => {
     setLoading(true); setError(null); setSyncNotice(null)
     try {
@@ -302,16 +325,11 @@ export default function App(): JSX.Element {
     }
 
     startCloudSync({
-      ...buildElectronSyncOptions(() => {
-        setRefreshKey(k => k + 1)
-        if (currentPageRef.current === 'forwarding') {
-          loadForwardingRef.current().catch(() => {})
-        }
-      })
+      ...buildElectronSyncOptions(handleCloudDataApplied)
     })
 
     return () => stopCloudSync()
-  }, [authenticated])
+  }, [authenticated, handleCloudDataApplied])
 
   function navigateTo(target: HomeNavigationTarget | TabKey) {
     const nextTarget = typeof target === 'string' ? { tab: target } : target
@@ -343,6 +361,14 @@ export default function App(): JSX.Element {
         <div />
       )}
       <div className="toolbar__actions" style={{ marginLeft: 'auto' }}>
+        <button
+          className="settings-panel__btn settings-panel__btn--secondary"
+          onClick={() => { handleManualCloudSync().catch(() => {}) }}
+          disabled={manualCloudSyncing}
+          style={{ fontSize: '11px', height: '30px', padding: '0 10px' }}
+        >
+          {manualCloudSyncing ? '同步中...' : '🔄 手动同步'}
+        </button>
         <button className="settings-panel__btn settings-panel__btn--secondary" onClick={() => window.electronAPI.openDataFolder()} style={{ fontSize: '11px', height: '30px', padding: '0 10px' }}>
           📂 数据目录
         </button>

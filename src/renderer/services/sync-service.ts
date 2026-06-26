@@ -26,7 +26,8 @@ export type SyncOptions = {
 
 let syncTimer: ReturnType<typeof setInterval> | null = null
 let syncing = false
-const SYNC_INTERVAL_MS = 30_000
+export const CLOUD_SYNC_INTERVAL_MINUTES = 30
+const SYNC_INTERVAL_MS = CLOUD_SYNC_INTERVAL_MINUTES * 60_000
 const SYNC_WAIT_TIMEOUT_MS = 15_000
 const SYNC_WAIT_INTERVAL_MS = 120
 

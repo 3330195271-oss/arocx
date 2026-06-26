@@ -1,17 +1,16 @@
 const fallbackConfig = {
-  latestVersion: '1.0.8',
-  downloadUrlWindows: 'https://github.com/3330195271-oss/arocx/releases/download/v1.0.8/arocx-1.0.8-x64.exe',
-  downloadUrlMacArm64: 'https://github.com/3330195271-oss/arocx/releases/download/v1.0.8/arocx-1.0.8-arm64-mac.dmg',
+  latestVersion: '1.0.9',
+  downloadUrlWindows: 'https://github.com/3330195271-oss/arocx/releases/download/v1.0.9/arocx-1.0.9-x64.exe',
+  downloadUrlMacArm64: 'https://github.com/3330195271-oss/arocx/releases/download/v1.0.9/arocx-1.0.9-arm64-mac.dmg',
   downloadUrlMacX64: '',
-  publishedAt: '2026-06-26T14:30:00+08:00',
-  releaseNotes: `【1.0.8 本次更新】
+  publishedAt: '2026-06-26T18:50:00+08:00',
+  releaseNotes: `【1.0.9 本次更新】
 
-1. 企业协作改为以企业主数据为准，成员加入后会直接看到企业统一的订单、库存和发货记录。
-2. 好友代发流程补齐：帮好友发货后，双方的发货信息里都会保留记录，并标注代发关系。
-3. AI 截图录单改为统一云端识别，不再需要在每台电脑单独配置识别密钥。
-4. 技术支持改为弹窗展示邮箱，可直接复制地址或一键调用邮件应用发信。
-5. 官网与下载页优化：功能标签可点击跳转，新增回到顶部和 GitHub 发布入口，查功能和下载更方便。
-6. 多项同步与稳定性修复：企业切换、发货视图、飞书同步与更新流程更顺畅。`
+1. 企业协作同步节奏调整为每 30 分钟自动刷新，并新增顶部“手动同步”按钮，成员可随时拉取最新订单、库存和发货记录。
+2. 订单发货弹窗支持“入库并发货”：如果输入的序列号暂时不在库存里，可以直接补入设备并完成发货。
+3. 企业订单、设备库存、发货信息三处的同步提示已统一，协作时更容易判断当前看到的是不是最新数据。
+4. 企业发货链路补齐了服务端校验，不同电脑上处理同一批订单时，入库与发货结果会保持一致。
+5. 多项细节优化与稳定性修复，减少协作场景下的来回刷新和重复操作。`
 }
 
 const endpoints = [

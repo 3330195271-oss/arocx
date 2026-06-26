@@ -46,6 +46,9 @@ window.electronAPI = {
   dispatchOrder: function(orderId, serialNumber, trackingNumber){
     return fetch('/api/orders/dispatch', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({orderId: orderId, serialNumber: serialNumber, trackingNumber: trackingNumber}) }).then(function(r){ return r.json(); });
   },
+  dispatchOrderWithNewDevice: function(orderId, serialNumber, trackingNumber){
+    return fetch('/api/orders/dispatch-with-new-device', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({orderId: orderId, serialNumber: serialNumber, trackingNumber: trackingNumber}) }).then(function(r){ return r.json(); });
+  },
   returnOrder: function(orderId){
     return fetch('/api/orders/return', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({orderId: orderId}) }).then(function(r){ return r.json(); });
   },

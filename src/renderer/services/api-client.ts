@@ -516,6 +516,13 @@ export async function dispatchEnterpriseOrder(orderId: string, serialNumber: str
   })
 }
 
+export async function dispatchEnterpriseOrderWithNewDevice(orderId: string, serialNumber: string, trackingNumber: string): Promise<{ success: boolean; message: string; order: any }> {
+  return request('/api/enterprise/orders/' + encodeURIComponent(orderId) + '/dispatch-with-new-device', {
+    method: 'POST',
+    body: JSON.stringify({ serialNumber, trackingNumber })
+  })
+}
+
 export async function returnEnterpriseOrder(orderId: string): Promise<{ success: boolean; order: any }> {
   return request('/api/enterprise/orders/' + encodeURIComponent(orderId) + '/return', {
     method: 'POST',
