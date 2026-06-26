@@ -1,7 +1,7 @@
 import { app, ipcMain, shell } from 'electron'
 import { dirname } from 'path'
 import { fetchCustomers, openSharedLink, getSavePath, readExcelFile } from './wps-service'
-import { extractOrderFromImage, getMaskedApiKey, saveApiKey } from './ocr-service'
+import { extractOrderFromImage } from './ocr-service'
 import {
   getWecomConfig,
   saveWecomConfig,
@@ -169,15 +169,6 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('delete-device', async (_e, deviceId: string): Promise<boolean> => {
     return deviceStore.deleteDevice(deviceId)
-  })
-
-  ipcMain.handle('get-api-key', async () => {
-    return getMaskedApiKey()
-  })
-
-  ipcMain.handle('save-api-key', async (_e, key: string) => {
-    saveApiKey(key)
-    return true
   })
 
   ipcMain.handle('get-wecom-config', async () => {

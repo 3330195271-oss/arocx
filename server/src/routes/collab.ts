@@ -35,6 +35,8 @@ function rowToOrder(row: any) {
     forwardedFromOrderId: row.forwarded_from_order_id || '',
     forwardedToOrderId: row.forwarded_to_order_id || '',
     forwardTracking: row.forward_tracking || '',
+    friendDispatchHelperUserId: row.friend_dispatch_helper_user_id || undefined,
+    friendDispatchHelperEmail: row.friend_dispatch_helper_email || '',
     feishuRecordId: row.feishu_record_id || '',
     feishuSyncStatus: row.feishu_sync_status || '',
     feishuSyncError: row.feishu_sync_error || '',
@@ -145,6 +147,25 @@ router.get('/shared-with-me', authMiddleware, requireTier('team', 'pro'), async 
   }
 })
 
+router.get('/shipments/assisted-by-me', authMiddleware, requireTier('team', 'pro'), async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user
+    const result = await query(
+      `SELECT o.*, owner.email as owner_email
+       FROM orders o
+       JOIN users owner ON o.user_id = owner.id
+       WHERE o.friend_dispatch_helper_user_id = $1
+         AND owner.id <> $1
+       ORDER BY o.synced_at DESC`,
+      [user.userId]
+    )
+    res.json({ orders: result.rows })
+  } catch (err: any) {
+    console.error('[collab] assisted shipments error:', err.message)
+    res.status(500).json({ error: '查询代发记录失败' })
+  }
+})
+
 // Get dispatch options for a shared order
 router.get('/orders/:orderId/dispatch-options', authMiddleware, requireTier('team', 'pro'), async (req: Request, res: Response) => {
   try {
@@ -249,12 +270,21 @@ router.post('/orders/:orderId/dispatch', authMiddleware, requireTier('team', 'pr
            tracking_number = $2,
            dispatch_date = $3,
            status = 'dispatched',
+           friend_dispatch_helper_user_id = $4,
+           friend_dispatch_helper_email = $5,
            feishu_sync_status = 'pending',
            feishu_sync_error = '',
            synced_at = NOW()
-       WHERE id = $4
+       WHERE id = $6
        RETURNING *`,
-      [String(serialNumber).trim(), String(trackingNumber).trim(), dispatchDate, orderId]
+      [
+        String(serialNumber).trim(),
+        String(trackingNumber).trim(),
+        dispatchDate,
+        user.userId,
+        user.email,
+        orderId
+      ]
     )
 
     let updatedOrder = orderUpdateResult.rows[0]

@@ -1,7 +1,19 @@
 /**
  * Cloud sync service — keeps local JSON mirrored with the logged-in account.
  */
-import { isLoggedIn, pushOrders, pushDevices, pullOrders, pullDevices } from './api-client'
+import {
+  getMyEnterprise,
+  getUser,
+  isLoggedIn,
+  pullDevices,
+  pullEnterpriseWorkspaceDevices,
+  pullEnterpriseWorkspaceOrders,
+  pullOrders,
+  pushDevices,
+  pushEnterpriseWorkspaceDevices,
+  pushEnterpriseWorkspaceOrders,
+  pushOrders
+} from './api-client'
 import type { Order, Device } from '../types/customer'
 
 export type SyncOptions = {
@@ -18,6 +30,13 @@ const SYNC_INTERVAL_MS = 30_000
 const SYNC_WAIT_TIMEOUT_MS = 15_000
 const SYNC_WAIT_INTERVAL_MS = 120
 
+type SyncTarget = {
+  pullOrders: () => Promise<any[]>
+  pushOrders: (orders: Order[]) => Promise<{ upserted: number }>
+  pullDevices: () => Promise<any[]>
+  pushDevices: (devices: Device[]) => Promise<{ upserted: number }>
+}
+
 export function buildElectronSyncOptions(onApplied?: () => void): SyncOptions {
   return {
     getOrders: () => window.electronAPI.getAllOrders(),
@@ -29,7 +48,8 @@ export function buildElectronSyncOptions(onApplied?: () => void): SyncOptions {
 }
 
 async function pullFromCloud(options: SyncOptions): Promise<void> {
-  const [orders, devices] = await Promise.all([pullOrders(), pullDevices()])
+  const target = await resolveSyncTarget()
+  const [orders, devices] = await Promise.all([target.pullOrders(), target.pullDevices()])
   await Promise.all([
     options.replaceOrders(orders),
     options.replaceDevices(devices)
@@ -38,11 +58,41 @@ async function pullFromCloud(options: SyncOptions): Promise<void> {
 }
 
 async function pushToCloud(options: SyncOptions): Promise<void> {
+  const target = await resolveSyncTarget()
   const [orders, devices] = await Promise.all([options.getOrders(), options.getDevices()])
   await Promise.all([
-    pushOrders(orders),
-    pushDevices(devices)
+    target.pushOrders(orders),
+    target.pushDevices(devices)
   ])
+}
+
+async function resolveSyncTarget(): Promise<SyncTarget> {
+  const user = getUser()
+  if (!user || user.tier === 'free') {
+    return {
+      pullOrders,
+      pushOrders,
+      pullDevices,
+      pushDevices
+    }
+  }
+
+  const enterpriseData = await getMyEnterprise()
+  if (enterpriseData.enterprise) {
+    return {
+      pullOrders: pullEnterpriseWorkspaceOrders,
+      pushOrders: pushEnterpriseWorkspaceOrders,
+      pullDevices: pullEnterpriseWorkspaceDevices,
+      pushDevices: pushEnterpriseWorkspaceDevices
+    }
+  }
+
+  return {
+    pullOrders,
+    pushOrders,
+    pullDevices,
+    pushDevices
+  }
 }
 
 function sleep(ms: number): Promise<void> {

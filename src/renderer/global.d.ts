@@ -86,10 +86,6 @@ declare global {
         }
       }>
 
-      // API Key status
-      getApiKey: () => Promise<string>
-      saveApiKey: (key: string) => Promise<boolean>
-
       importExcelFromDialog: () => Promise<AppData>
       fetchForwardingFromOrders: () => Promise<AppData>
     }

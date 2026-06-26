@@ -13,6 +13,7 @@ import friendsRoutes from './routes/friends'
 import collabRoutes from './routes/collab'
 import enterpriseRoutes from './routes/enterprise'
 import feishuRoutes from './routes/feishu'
+import ocrRoutes from './routes/ocr'
 
 const PORT = parseInt(process.env.PORT || '3001')
 const APP_DOWNLOADS_DIR = process.env.APP_DOWNLOADS_DIR || join(process.cwd(), 'uploads', 'app')
@@ -47,6 +48,7 @@ async function main() {
   app.use('/api/collab', collabRoutes)
   app.use('/api/enterprise', enterpriseRoutes)
   app.use('/api/feishu', feishuRoutes)
+  app.use('/api/ocr', ocrRoutes)
 
   app.listen(PORT, () => {
     console.log(`[server] arocx cloud API running on port ${PORT}`)

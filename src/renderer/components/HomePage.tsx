@@ -5,6 +5,7 @@ import type { DailyStats, InventoryStats } from '../types/customer'
 import type { AppVersionInfo, ClientPlatformInfo, SubscriptionInfo, TierInfo } from '../services/api-client'
 import type { HomeNavigationTarget } from '../types/home-navigation'
 import { copySupportEmailToClipboard, OFFICIAL_WEBSITE_URL, SUPPORT_EMAIL, SUPPORT_EMAIL_MAILTO_URL } from '../utils/external-links'
+import { SupportEmailModal } from './SupportEmailModal'
 
 interface HomePageProps {
   onNavigate: (target: HomeNavigationTarget | TabKey) => void
@@ -66,13 +67,27 @@ export function HomePage({ onNavigate, userEmail, userTier, onRefreshUser, onLog
   const [redeemInput, setRedeemInput] = useState('')
   const [redeeming, setRedeeming] = useState(false)
   const [redeemMsg, setRedeemMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [showSupportModal, setShowSupportModal] = useState(false)
   const [supportMsg, setSupportMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   async function handleOpenOfficialWebsite() {
     await window.electronAPI.openExternalUrl(OFFICIAL_WEBSITE_URL)
   }
 
-  async function handleContactSupport() {
+  function handleContactSupport() {
+    setShowSupportModal(true)
+    setSupportMsg(null)
+  }
+
+  async function handleCopySupportEmail() {
+    const copied = await copySupportEmailToClipboard()
+    setSupportMsg({
+      type: copied ? 'success' : 'error',
+      text: copied ? `技术支持邮箱已复制：${SUPPORT_EMAIL}` : `技术支持邮箱：${SUPPORT_EMAIL}`
+    })
+  }
+
+  async function handleOpenSupportMail() {
     try {
       await window.electronAPI.openExternalUrl(SUPPORT_EMAIL_MAILTO_URL)
       setSupportMsg({
@@ -86,7 +101,11 @@ export function HomePage({ onNavigate, userEmail, userTier, onRefreshUser, onLog
         text: copied ? `未能直接打开邮件应用，已复制技术支持邮箱：${SUPPORT_EMAIL}` : `技术支持邮箱：${SUPPORT_EMAIL}`
       })
     }
-    window.setTimeout(() => setSupportMsg(null), 4000)
+  }
+
+  function closeSupportModal() {
+    setShowSupportModal(false)
+    setSupportMsg(null)
   }
 
   function handleTitleClick() {
@@ -236,9 +255,9 @@ export function HomePage({ onNavigate, userEmail, userTier, onRefreshUser, onLog
       key: 'support',
       emoji: '🛟',
       title: '技术支持',
-      desc: '直接打开邮件反馈窗口，遇到问题随时联系',
+      desc: '查看技术支持邮箱，按需一键发邮件反馈',
       accent: '#0f766e',
-      onClick: handleContactSupport
+      onClick: async () => { handleContactSupport() }
     }
   ]
 
@@ -711,22 +730,13 @@ export function HomePage({ onNavigate, userEmail, userTier, onRefreshUser, onLog
         ))}
       </div>
 
-      {supportMsg && (
-        <div
-          style={{
-            marginTop: '12px',
-            padding: '12px 14px',
-            borderRadius: '12px',
-            border: `1px solid ${supportMsg.type === 'success' ? '#c8e6c9' : '#ffe0b2'}`,
-            background: supportMsg.type === 'success' ? '#f1f8e9' : '#fff8e1',
-            color: supportMsg.type === 'success' ? '#2e7d32' : '#b26a00',
-            fontSize: '12px',
-            lineHeight: 1.7
-          }}
-        >
-          {supportMsg.text}
-        </div>
-      )}
+      <SupportEmailModal
+        open={showSupportModal}
+        onClose={closeSupportModal}
+        onCopyEmail={handleCopySupportEmail}
+        onOpenMail={handleOpenSupportMail}
+        message={supportMsg}
+      />
 
       {billingModalTab && (
         <div className="dispatch-overlay" onClick={() => setBillingModalTab(null)}>

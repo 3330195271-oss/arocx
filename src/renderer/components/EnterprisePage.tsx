@@ -11,6 +11,7 @@ import {
   leaveEnterprise,
   regenerateInviteCode
 } from '../services/api-client'
+import { buildElectronSyncOptions, pullNow } from '../services/sync-service'
 
 type EnterpriseInfo = {
   id: number
@@ -153,6 +154,7 @@ export function EnterprisePage(): JSX.Element {
     try {
       const result = await joinEnterprise(joinCode.trim())
       setJoinCode('')
+      await pullNow(buildElectronSyncOptions())
       setMsg({ type: 'success', text: result.message })
       await loadData()
     } catch (error: any) {
@@ -166,6 +168,7 @@ export function EnterprisePage(): JSX.Element {
     if (!confirm('确认退出当前企业？退出后将无法继续查看企业共享数据。')) return
     try {
       await leaveEnterprise()
+      await pullNow(buildElectronSyncOptions())
       setMsg({ type: 'success', text: '已退出企业。' })
       await loadData()
     } catch (error: any) {

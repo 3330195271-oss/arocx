@@ -79,6 +79,8 @@ export interface Order {
   forwardedFromOrderId?: string   // 从哪个订单转寄过来
   forwardedToOrderId?: string     // 转寄给了哪个订单
   forwardTracking?: string        // 转寄快递单号
+  friendDispatchHelperUserId?: number
+  friendDispatchHelperEmail?: string
   feishuRecordId?: string
   feishuSyncStatus?: 'pending' | 'synced' | 'failed' | ''
   feishuSyncError?: string

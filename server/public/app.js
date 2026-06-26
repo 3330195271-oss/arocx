@@ -1,16 +1,17 @@
 const fallbackConfig = {
-  latestVersion: '1.0.7',
-  downloadUrlWindows: 'https://github.com/3330195271-oss/arocx/releases/download/v1.0.7/arocx-1.0.7-x64.exe',
-  downloadUrlMacArm64: 'https://github.com/3330195271-oss/arocx/releases/download/v1.0.7/arocx-1.0.7-arm64-mac.dmg',
+  latestVersion: '1.0.8',
+  downloadUrlWindows: 'https://github.com/3330195271-oss/arocx/releases/download/v1.0.8/arocx-1.0.8-x64.exe',
+  downloadUrlMacArm64: 'https://github.com/3330195271-oss/arocx/releases/download/v1.0.8/arocx-1.0.8-arm64-mac.dmg',
   downloadUrlMacX64: '',
-  publishedAt: '2026-06-25T19:46:59+08:00',
-  releaseNotes: `【1.0.7 本次更新】
+  publishedAt: '2026-06-26T14:30:00+08:00',
+  releaseNotes: `【1.0.8 本次更新】
 
-1. 企业协作升级：企业成员进入订单管理、设备库存、发货信息后可直接查看企业全部数据，并在 30 秒内自动刷新同步。
-2. Windows 版升级体验优化：支持自动下载安装更新，并显示下载进度。
-3. 飞书接入补充完整教程，软件内可直接打开接入说明页。
-4. 首页与设置体验优化：官网入口、技术支持邮箱、更新弹窗与安装包选择更清晰。
-5. 多项稳定性修复：修复技术支持入口、设置页升级按钮等细节问题，云端协作更稳定。`
+1. 企业协作改为以企业主数据为准，成员加入后会直接看到企业统一的订单、库存和发货记录。
+2. 好友代发流程补齐：帮好友发货后，双方的发货信息里都会保留记录，并标注代发关系。
+3. AI 截图录单改为统一云端识别，不再需要在每台电脑单独配置识别密钥。
+4. 技术支持改为弹窗展示邮箱，可直接复制地址或一键调用邮件应用发信。
+5. 官网与下载页优化：功能标签可点击跳转，新增回到顶部和 GitHub 发布入口，查功能和下载更方便。
+6. 多项同步与稳定性修复：企业切换、发货视图、飞书同步与更新流程更顺畅。`
 }
 
 const endpoints = [

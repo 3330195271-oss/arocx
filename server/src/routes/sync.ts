@@ -57,6 +57,8 @@ router.post('/orders', async (req: Request, res: Response) => {
         forwardedFromOrderId: o.forwardedFromOrderId || '',
         forwardedToOrderId: o.forwardedToOrderId || '',
         forwardTracking: o.forwardTracking || '',
+        friendDispatchHelperUserId: o.friendDispatchHelperUserId || null,
+        friendDispatchHelperEmail: o.friendDispatchHelperEmail || '',
         feishuRecordId: o.feishuRecordId || '',
         feishuSyncStatus: o.feishuSyncStatus || '',
         feishuSyncError: o.feishuSyncError || '',
@@ -73,8 +75,9 @@ router.post('/orders', async (req: Request, res: Response) => {
           platform, cs_rep, remarks, device_id, serial_number, tracking_number,
           shipment_date, rental_start, rental_end, dispatch_date, return_date,
           status, forwarded_from_order_id, forwarded_to_order_id, forward_tracking,
+          friend_dispatch_helper_user_id, friend_dispatch_helper_email,
           feishu_record_id, feishu_sync_status, feishu_sync_error, feishu_synced_at
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)
         ON CONFLICT (id) DO UPDATE SET
           customer_name = EXCLUDED.customer_name,
           customer_phone = EXCLUDED.customer_phone,
@@ -94,6 +97,8 @@ router.post('/orders', async (req: Request, res: Response) => {
           forwarded_from_order_id = EXCLUDED.forwarded_from_order_id,
           forwarded_to_order_id = EXCLUDED.forwarded_to_order_id,
           forward_tracking = EXCLUDED.forward_tracking,
+          friend_dispatch_helper_user_id = EXCLUDED.friend_dispatch_helper_user_id,
+          friend_dispatch_helper_email = EXCLUDED.friend_dispatch_helper_email,
           feishu_record_id = EXCLUDED.feishu_record_id,
           feishu_sync_status = EXCLUDED.feishu_sync_status,
           feishu_sync_error = EXCLUDED.feishu_sync_error,
@@ -107,6 +112,7 @@ router.post('/orders', async (req: Request, res: Response) => {
         normalizedOrder.dispatchDate, normalizedOrder.returnDate,
         normalizedOrder.status,
         normalizedOrder.forwardedFromOrderId, normalizedOrder.forwardedToOrderId, normalizedOrder.forwardTracking,
+        normalizedOrder.friendDispatchHelperUserId, normalizedOrder.friendDispatchHelperEmail,
         normalizedOrder.feishuRecordId, normalizedOrder.feishuSyncStatus, normalizedOrder.feishuSyncError,
         normalizedOrder.feishuSyncedAt ? new Date(normalizedOrder.feishuSyncedAt) : null
       ])
@@ -254,6 +260,8 @@ function rowToOrder(row: any) {
     forwardedFromOrderId: row.forwarded_from_order_id,
     forwardedToOrderId: row.forwarded_to_order_id,
     forwardTracking: row.forward_tracking,
+    friendDispatchHelperUserId: row.friend_dispatch_helper_user_id || undefined,
+    friendDispatchHelperEmail: row.friend_dispatch_helper_email || '',
     feishuRecordId: row.feishu_record_id || '',
     feishuSyncStatus: row.feishu_sync_status || '',
     feishuSyncError: row.feishu_sync_error || '',

@@ -1,9 +1,10 @@
 import { useEffect, useState, useMemo } from 'react'
 import type { Order } from '../types/customer'
-import { forwardEnterpriseOrder, returnEnterpriseOrder } from '../services/api-client'
+import { forwardEnterpriseOrder, getAssistedShipments, isLoggedIn, returnEnterpriseOrder } from '../services/api-client'
 import {
   getEnterpriseWorkspaceInfo,
   loadEnterpriseOrders,
+  normalizeEnterpriseOrder,
   type WorkspaceOrder
 } from '../services/enterprise-workspace'
 import { syncOrdersAfterMutation } from '../services/order-change-sync'
@@ -49,10 +50,37 @@ export function ShippingInfo(): JSX.Element {
   }
 
   async function reload(useEnterpriseMode = enterpriseMode) {
-    const nextOrders = useEnterpriseMode
-      ? await loadEnterpriseOrders()
-      : await window.electronAPI.getAllOrders()
-    setAllOrders(nextOrders)
+    if (useEnterpriseMode) {
+      setAllOrders((await loadEnterpriseOrders()).map(order => ({ ...order, shippingViewRole: 'owner' as const })))
+      return
+    }
+
+    const personalOrders = (await window.electronAPI.getAllOrders()).map(order => ({
+      ...order,
+      shippingViewRole: 'owner' as const
+    })) as WorkspaceOrder[]
+
+    const merged = new Map<string, WorkspaceOrder>()
+    personalOrders.forEach(order => merged.set(order.id, order))
+
+    if (isLoggedIn()) {
+      try {
+        const assisted = await getAssistedShipments()
+        for (const record of assisted.orders || []) {
+          const normalized = {
+            ...normalizeEnterpriseOrder(record),
+            shippingViewRole: 'helper' as const
+          }
+          if (!merged.has(normalized.id)) {
+            merged.set(normalized.id, normalized)
+          }
+        }
+      } catch {
+        // Keep local shipping history available even if the assisted view fails.
+      }
+    }
+
+    setAllOrders(Array.from(merged.values()))
   }
 
   async function refreshAfterEnterpriseMutation() {
@@ -104,14 +132,15 @@ export function ShippingInfo(): JSX.Element {
     let list = allOrders.filter(o => o.status === 'dispatched' || o.status === 'returned')
     if (searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase()
-      list = list.filter(o =>
-        o.customerName.toLowerCase().includes(q) ||
-        o.customerPhone.includes(q) ||
-        o.csRep.toLowerCase().includes(q) ||
-        o.serialNumber.toLowerCase().includes(q) ||
-        o.trackingNumber.toLowerCase().includes(q) ||
-        (o.ownerEmail || '').toLowerCase().includes(q)
-      )
+        list = list.filter(o =>
+          o.customerName.toLowerCase().includes(q) ||
+          o.customerPhone.includes(q) ||
+          o.csRep.toLowerCase().includes(q) ||
+          o.serialNumber.toLowerCase().includes(q) ||
+          o.trackingNumber.toLowerCase().includes(q) ||
+          (o.ownerEmail || '').toLowerCase().includes(q) ||
+          (o.friendDispatchHelperEmail || '').toLowerCase().includes(q)
+        )
     }
     return list
   }, [allOrders, searchQuery])
@@ -128,6 +157,7 @@ export function ShippingInfo(): JSX.Element {
   const forwardTargets = useMemo(() => {
     if (!forwardSource) return []
     let list = allOrders.filter(o =>
+      o.shippingViewRole !== 'helper' &&
       o.status !== 'returned' &&
       o.id !== forwardSource.id &&
       o.deviceId === forwardSource.deviceId
@@ -153,6 +183,16 @@ export function ShippingInfo(): JSX.Element {
       const target = allOrders.find(o => o.id === order.forwardedToOrderId)
       if (target) return `→ 转寄给「${target.customerName}」`
       return '→ 已转寄'
+    }
+    return null
+  }
+
+  function getFriendDispatchInfo(order: WorkspaceOrder): string | null {
+    if (order.shippingViewRole === 'helper') {
+      return `帮好友代发${order.ownerEmail ? ` · 订单归属 ${order.ownerEmail}` : ''}`
+    }
+    if (order.friendDispatchHelperEmail) {
+      return `好友帮忙发 · ${order.friendDispatchHelperEmail}`
     }
     return null
   }
@@ -199,6 +239,7 @@ export function ShippingInfo(): JSX.Element {
 
         {pagedOrders.map(order => {
           const fwdInfo = getForwardInfo(order)
+          const friendDispatchInfo = getFriendDispatchInfo(order)
           return (
             <div key={order.id} className="order-card" style={{ background: isOverdue(order) ? '#fff5f5' : undefined, borderLeft: isOverdue(order) ? '3px solid #e53935' : undefined }}>
               <div className="order-card__info">
@@ -219,7 +260,7 @@ export function ShippingInfo(): JSX.Element {
                   {order.csRep && <span> · 客服 {order.csRep}</span>}
                   <span> · {order.customerPhone}</span>
                   <span> · {order.deviceId}</span>
-                  {enterpriseMode && order.ownerEmail ? <span> · 所属 {order.ownerEmail}</span> : null}
+                  {(enterpriseMode || order.shippingViewRole === 'helper') && order.ownerEmail ? <span> · 所属 {order.ownerEmail}</span> : null}
                 </div>
 
                 {/* Tracking + Serial */}
@@ -245,10 +286,16 @@ export function ShippingInfo(): JSX.Element {
                     {order.forwardTracking && <span style={{ marginLeft: '8px', fontWeight: 400 }}>单号: {order.forwardTracking}</span>}
                   </div>
                 )}
+
+                {friendDispatchInfo && (
+                  <div style={{ marginTop: '6px', fontSize: '12px', color: '#0f766e', fontWeight: 600 }}>
+                    🤝 {friendDispatchInfo}
+                  </div>
+                )}
               </div>
 
               {/* Actions — only for dispatched orders */}
-              {order.status === 'dispatched' && (
+              {order.status === 'dispatched' && order.shippingViewRole !== 'helper' && (
                 <div className="order-card__actions" style={{ flexDirection: 'column', gap: '6px' }}>
                   <button className="settings-panel__btn settings-panel__btn--secondary"
                     style={{ fontSize: '11px', height: '28px', width: '56px' }}

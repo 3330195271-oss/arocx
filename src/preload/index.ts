@@ -117,12 +117,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     }
   }> => ipcRenderer.invoke('send-notification-summary'),
 
-  // API Key
-  getApiKey: (): Promise<string> =>
-    ipcRenderer.invoke('get-api-key'),
-  saveApiKey: (key: string): Promise<boolean> =>
-    ipcRenderer.invoke('save-api-key', key),
-
   // Forwarding from orders
   importExcelFromDialog: (): Promise<import('../types/customer').AppData> =>
     ipcRenderer.invoke('import-excel-from-dialog'),

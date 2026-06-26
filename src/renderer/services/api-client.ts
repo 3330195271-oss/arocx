@@ -2,7 +2,7 @@
  * API Client for cloud server communication
  */
 
-const DEFAULT_API_BASE = 'http://47.254.36.2:3001'
+const DEFAULT_API_BASE = 'https://arocx.fun'
 
 function normalizeApiBase(url: string): string {
   const normalized = url.trim().replace(/\/+$/, '')
@@ -178,6 +178,28 @@ export async function pullDevices(): Promise<any[]> {
 
 export async function pushDevices(devices: any[]): Promise<{ upserted: number }> {
   return request('/api/sync/devices', {
+    method: 'POST',
+    body: JSON.stringify({ devices })
+  })
+}
+
+export async function pullEnterpriseWorkspaceOrders(): Promise<any[]> {
+  return request('/api/enterprise/sync/orders')
+}
+
+export async function pushEnterpriseWorkspaceOrders(orders: any[]): Promise<{ upserted: number; deleted: number }> {
+  return request('/api/enterprise/sync/orders', {
+    method: 'POST',
+    body: JSON.stringify({ orders })
+  })
+}
+
+export async function pullEnterpriseWorkspaceDevices(): Promise<any[]> {
+  return request('/api/enterprise/sync/devices')
+}
+
+export async function pushEnterpriseWorkspaceDevices(devices: any[]): Promise<{ upserted: number; deleted: number }> {
+  return request('/api/enterprise/sync/devices', {
     method: 'POST',
     body: JSON.stringify({ devices })
   })
@@ -359,6 +381,24 @@ export async function incrementAiUsage(): Promise<AiUsageInfo> {
   return request('/api/ai-usage/increment', { method: 'POST' })
 }
 
+export async function extractOrderFromImageCloud(base64Image: string): Promise<{
+  name: string
+  phone: string
+  address: string
+  deviceId: string
+  shipmentDate: string
+  rentalStart: string
+  rentalEnd: string
+  platform: string
+  csRep: string
+  remarks: string
+}> {
+  return request('/api/ocr/extract', {
+    method: 'POST',
+    body: JSON.stringify({ base64Image })
+  })
+}
+
 // ---- Recharge ----
 
 export async function redeemRechargeCode(code: string): Promise<{ success: boolean; credits: number; totalCredits: number; message: string }> {
@@ -406,6 +446,10 @@ export async function getOrderCollaborators(orderId: string): Promise<{ collabor
 
 export async function getSharedOrders(): Promise<{ orders: any[] }> {
   return request('/api/collab/shared-with-me')
+}
+
+export async function getAssistedShipments(): Promise<{ orders: any[] }> {
+  return request('/api/collab/shipments/assisted-by-me')
 }
 
 export async function getSharedOrderDispatchOptions(orderId: string): Promise<{ order: any; devices: any[] }> {

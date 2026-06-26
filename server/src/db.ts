@@ -50,6 +50,8 @@ export async function initDb(): Promise<void> {
       forwarded_from_order_id VARCHAR(64) DEFAULT '',
       forwarded_to_order_id VARCHAR(64) DEFAULT '',
       forward_tracking VARCHAR(100) DEFAULT '',
+      friend_dispatch_helper_user_id INTEGER,
+      friend_dispatch_helper_email VARCHAR(255) DEFAULT '',
       feishu_record_id VARCHAR(100) DEFAULT '',
       feishu_sync_status VARCHAR(20) DEFAULT '',
       feishu_sync_error TEXT DEFAULT '',
@@ -82,6 +84,8 @@ export async function initDb(): Promise<void> {
   await query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS feishu_sync_status VARCHAR(20) DEFAULT ''`)
   await query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS feishu_sync_error TEXT DEFAULT ''`)
   await query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS feishu_synced_at TIMESTAMPTZ`)
+  await query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS friend_dispatch_helper_user_id INTEGER`)
+  await query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS friend_dispatch_helper_email VARCHAR(255) DEFAULT ''`)
 
   await query(`
     CREATE TABLE IF NOT EXISTS verification_codes (
@@ -203,6 +207,14 @@ export async function initDb(): Promise<void> {
       table_id VARCHAR(255) NOT NULL DEFAULT '',
       primary_field_name VARCHAR(100) NOT NULL DEFAULT '订单标题',
       base_url TEXT NOT NULL DEFAULT '',
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `)
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS user_ocr_settings (
+      user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      api_key TEXT NOT NULL DEFAULT '',
       updated_at TIMESTAMPTZ DEFAULT NOW()
     )
   `)

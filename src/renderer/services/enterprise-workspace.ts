@@ -3,6 +3,7 @@ import { getEnterpriseDevices, getEnterpriseOrders, getMyEnterprise, getUser } f
 
 export type WorkspaceOrder = Order & {
   ownerEmail?: string
+  shippingViewRole?: 'owner' | 'helper'
   feishuRecordId?: string
   feishuSyncStatus?: string
   feishuSyncError?: string
@@ -60,6 +61,8 @@ export function normalizeEnterpriseOrder(record: any): WorkspaceOrder {
     forwardedFromOrderId: record.forwardedFromOrderId || record.forwarded_from_order_id || '',
     forwardedToOrderId: record.forwardedToOrderId || record.forwarded_to_order_id || '',
     forwardTracking: record.forwardTracking || record.forward_tracking || '',
+    friendDispatchHelperUserId: record.friendDispatchHelperUserId || record.friend_dispatch_helper_user_id || undefined,
+    friendDispatchHelperEmail: record.friendDispatchHelperEmail || record.friend_dispatch_helper_email || '',
     feishuRecordId: record.feishuRecordId || record.feishu_record_id || '',
     feishuSyncStatus: record.feishuSyncStatus || record.feishu_sync_status || '',
     feishuSyncError: record.feishuSyncError || record.feishu_sync_error || '',

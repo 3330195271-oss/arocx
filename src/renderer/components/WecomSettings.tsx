@@ -4,6 +4,7 @@ import type { SubscriptionInfo, TierInfo, AppVersionInfo, ClientPlatformInfo } f
 import { buildUpdatePackageOptions, formatDetectedPlatform } from '../utils/update-packages'
 import { copySupportEmailToClipboard, OFFICIAL_WEBSITE_URL, SUPPORT_EMAIL, SUPPORT_EMAIL_MAILTO_URL } from '../utils/external-links'
 import { getUpdateProgressLabel, type RendererUpdateProgress } from '../utils/update-progress'
+import { SupportEmailModal } from './SupportEmailModal'
 
 interface WecomSettingsProps { onRefreshUser?: () => void }
 
@@ -25,6 +26,7 @@ export function WecomSettings({ onRefreshUser }: WecomSettingsProps): JSX.Elemen
   const [updatingApp, setUpdatingApp] = useState(false)
   const [updateMessage, setUpdateMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [updateProgress, setUpdateProgress] = useState<RendererUpdateProgress | null>(null)
+  const [showSupportModal, setShowSupportModal] = useState(false)
   const [contactMessage, setContactMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   // Subscription
@@ -166,7 +168,20 @@ export function WecomSettings({ onRefreshUser }: WecomSettingsProps): JSX.Elemen
     }
   }
 
-  async function handleContactSupport() {
+  function handleContactSupport() {
+    setShowSupportModal(true)
+    setContactMessage(null)
+  }
+
+  async function handleCopySupportEmail() {
+    const copied = await copySupportEmailToClipboard()
+    setContactMessage({
+      type: copied ? 'success' : 'error',
+      text: copied ? `技术支持邮箱已复制：${SUPPORT_EMAIL}` : `技术支持邮箱：${SUPPORT_EMAIL}`
+    })
+  }
+
+  async function handleOpenSupportMail() {
     try {
       await window.electronAPI.openExternalUrl(SUPPORT_EMAIL_MAILTO_URL)
       setContactMessage({
@@ -180,7 +195,11 @@ export function WecomSettings({ onRefreshUser }: WecomSettingsProps): JSX.Elemen
         text: copied ? `未能直接打开邮件应用，已复制技术支持邮箱：${SUPPORT_EMAIL}` : `技术支持邮箱：${SUPPORT_EMAIL}`
       })
     }
-    window.setTimeout(() => setContactMessage(null), 4000)
+  }
+
+  function closeSupportModal() {
+    setShowSupportModal(false)
+    setContactMessage(null)
   }
 
   function handleJumpToRedeem(tierName: string) {
@@ -427,7 +446,7 @@ export function WecomSettings({ onRefreshUser }: WecomSettingsProps): JSX.Elemen
               <div style={{ display: 'flex', gap: '8px' }}>
                 <input
                   className="form-input" style={{ flex: 1 }}
-                  placeholder="http://47.254.36.2:3001"
+                  placeholder="https://arocx.fun"
                   value={serverUrl} onChange={e => setServerUrl(e.target.value)}
                 />
                 <button className="settings-panel__btn settings-panel__btn--primary" onClick={handleSaveServerUrl} style={{ fontSize: '12px', height: '30px' }}>
@@ -445,7 +464,7 @@ export function WecomSettings({ onRefreshUser }: WecomSettingsProps): JSX.Elemen
       }}>
         <h4 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px' }}>🌐 关于 arocx</h4>
         <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginBottom: '12px', lineHeight: 1.7 }}>
-          官网提供产品介绍、安装下载和最新版本说明。遇到问题也可以直接复制技术支持邮箱反馈。
+          官网提供产品介绍、安装下载和最新版本说明。遇到问题也可以先查看技术支持邮箱，再按需发邮件反馈。
         </p>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <button
@@ -463,21 +482,15 @@ export function WecomSettings({ onRefreshUser }: WecomSettingsProps): JSX.Elemen
             技术支持
           </button>
         </div>
-        {contactMessage && (
-          <div style={{
-            marginTop: '12px',
-            padding: '10px 12px',
-            borderRadius: '10px',
-            fontSize: '12px',
-            lineHeight: 1.7,
-            background: contactMessage.type === 'success' ? '#f1f8e9' : '#fff8e1',
-            color: contactMessage.type === 'success' ? '#2e7d32' : '#b26a00',
-            border: `1px solid ${contactMessage.type === 'success' ? '#c8e6c9' : '#ffe0b2'}`
-          }}>
-            {contactMessage.text}
-          </div>
-        )}
       </div>
+
+      <SupportEmailModal
+        open={showSupportModal}
+        onClose={closeSupportModal}
+        onCopyEmail={handleCopySupportEmail}
+        onOpenMail={handleOpenSupportMail}
+        message={contactMessage}
+      />
 
       {/* ---- Version ---- */}
       <div style={{

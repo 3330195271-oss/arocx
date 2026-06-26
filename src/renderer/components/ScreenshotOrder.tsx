@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { getAiUsage, incrementAiUsage, isLoggedIn } from '../services/api-client'
+import { extractOrderFromImageCloud, getAiUsage, incrementAiUsage, isLoggedIn } from '../services/api-client'
 import { syncOrdersAfterMutation } from '../services/order-change-sync'
 
 interface OcrFields {
@@ -125,7 +125,7 @@ export function ScreenshotOrder(): JSX.Element {
         }
       }
 
-      const result = await window.electronAPI.extractOrderFromImage(image)
+      const result = await extractOrderFromImageCloud(image)
 
       // Increment usage after success
       if (isLoggedIn()) {
@@ -141,7 +141,12 @@ export function ScreenshotOrder(): JSX.Element {
         platform: matchedPlatform || result.platform
       })
     } catch (err: any) {
-      setError(err.message || '识别失败')
+      const message = err.message || '识别失败'
+      if (message.includes('OCR API Key')) {
+        setError('服务器端还没有配置 AI 识别密钥，请联系管理员处理。')
+      } else {
+        setError(message)
+      }
     } finally {
       setRecognizing(false)
     }
